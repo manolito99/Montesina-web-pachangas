@@ -26,6 +26,14 @@ export const metadata: Metadata = {
     description: "Pachangas y reservas de pista en el club Montesiña Padel.",
     type: "website",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Montesiña",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -37,7 +45,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${grotesk.variable} ${kalam.variable}`}>
-      <body className="font-sans antialiased text-ink">{children}</body>
+      <body className="font-sans antialiased text-ink">
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js')})}`,
+          }}
+        />
+      </body>
     </html>
   );
 }
