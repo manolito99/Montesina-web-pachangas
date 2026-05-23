@@ -1,0 +1,43 @@
+services:
+  web:
+    container_name: montesina-web
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: npm run dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL:-postgresql://montesina:montesina@db:5432/montesina?schema=public}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev-change-me}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    container_name: montesina-db
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: montesina
+      POSTGRES_USER: montesina
+      POSTGRES_PASSWORD: montesina
+    ports:
+      - "5432:5432"
+    volumes:
+      - montesina-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U montesina -d montesina"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  montesina-db:

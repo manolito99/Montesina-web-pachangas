@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #f5f2ea;
+  --paper-alt: #ece8dc;
+  --ink: #1a1a1a;
+  --ink-2: #3a3a3a;
+  --muted: #7a7670;
+  --lime: #c8e84a;
+  --lime-deep: #9fc93c;
+  --navy: #0f1a2e;
+  --navy-deep: #0b1220;
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-feature-settings: "ss01", "cv01", "cv11";
+}
+
+/* Make room for the fixed mobile bottom tab bar */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 68px;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Sketchy paper grain (very subtle) */
+.bg-paper-grain {
+  background-image:
+    radial-gradient(rgba(26, 26, 26, 0.04) 1px, transparent 1px),
+    radial-gradient(rgba(26, 26, 26, 0.03) 1px, transparent 1px);
+  background-size: 18px 18px, 26px 26px;
+  background-position: 0 0, 9px 13px;
+}
+
+/* Dashed underline that mimics handwriting */
+.divider-dashed {
+  border-top: 1px dashed var(--muted);
+}
+
+/* Text gradient kept for legacy spots where lime needs more pop */
+.text-lime-gradient {
+  background: linear-gradient(180deg, #d4f25c 0%, #9fc93c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

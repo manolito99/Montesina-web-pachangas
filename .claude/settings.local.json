@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(curl -s -o /tmp/home.html -w \"HTTP %{http_code} - %{size_download} bytes\\\\n\" http://localhost:3000/)",
+      "Read(//tmp/**)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Stop-Process *)",
+      "Bash(curl -s -o /tmp/dock.html -w \"HTTP %{http_code} - %{size_download} bytes - %{time_total}s\\\\n\" http://localhost:3000/)",
+      "Bash(gh auth *)",
+      "PowerShell(gh auth *)",
+      "PowerShell(git config *)",
+      "PowerShell(gh *)",
+      "PowerShell(git init *)"
+    ]
+  }
+}

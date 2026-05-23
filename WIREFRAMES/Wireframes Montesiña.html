@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Wireframes · Montesiña Padel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Space Grotesk', system-ui, sans-serif; color: #1a1a1a; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="wireframes-base.jsx"></script>
+<script type="text/babel" src="wireframes-home.jsx"></script>
+<script type="text/babel" src="wireframes-list.jsx"></script>
+<script type="text/babel" src="wireframes-flows.jsx"></script>
+<script type="text/babel" src="wireframes-misc.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+
+function App() {
+  return (
+    <DesignCanvas
+      title="Montesiña Padel · Wireframes low-fi"
+      subtitle="Exploración estructural · 7 pantallas · desktop + mobile · acento lima"
+    >
+      {/* ============================ HOME (3 variantes) ============================ */}
+      <DCSection
+        id="home"
+        title="① Home — 3 variantes"
+        subtitle="Hero clásico · Split agenda · Inmersivo navy. Cada uno con su versión móvil. El reveal del logo al scroll está anotado en cada hero."
+      >
+        <DCArtboard id="home-a-d" label="A · Hero clásico (desktop)" width={1080} height={760}>
+          <HomeA_Desktop />
+        </DCArtboard>
+        <DCArtboard id="home-a-m" label="A · mobile" width={296} height={620}>
+          <HomeA_Mobile />
+        </DCArtboard>
+        <DCArtboard id="home-b-d" label="B · Split agenda (desktop)" width={1080} height={720}>
+          <HomeB_Desktop />
+        </DCArtboard>
+        <DCArtboard id="home-b-m" label="B · mobile" width={296} height={620}>
+          <HomeB_Mobile />
+        </DCArtboard>
+        <DCArtboard id="home-c-d" label="C · Inmersivo navy (desktop)" width={1080} height={760}>
+          <HomeC_Desktop />
+        </DCArtboard>
+        <DCArtboard id="home-c-m" label="C · mobile" width={296} height={620}>
+          <HomeC_Mobile />
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============================ LISTADO ============================ */}
+      <DCSection
+        id="list"
+        title="② Listado de pachangas — 4 layouts"
+        subtitle="Misma data, distintas estructuras: cards + filtros laterales, agenda densa agrupada por día, calendario semanal de slots, móvil con FAB."
+      >
+        <DCArtboard id="list-a" label="Cards + filtros laterales (Airbnb)" width={1080} height={800}>
+          <ListA_Desktop />
+        </DCArtboard>
+        <DCArtboard id="list-b" label="Agenda densa agrupada por día" width={1080} height={720}>
+          <ListB_Desktop />
+        </DCArtboard>
+        <DCArtboard id="list-c" label="Calendario semanal (Doodle-like)" width={1080} height={680}>
+          <ListC_Desktop />
+        </DCArtboard>
+        <DCArtboard id="list-m" label="Mobile · agenda + tabs + FAB" width={296} height={620}>
+          <ListMobile />
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============================ DETALLE ============================ */}
+      <DCSection
+        id="detail"
+        title="③ Detalle de pachanga"
+        subtitle="Estado con plaza libre · estado completo con lista de espera · móvil. Equilibrio 2H/2M visible en la mixta, chat de la pachanga en sidebar."
+      >
+        <DCArtboard id="detail-d" label="Desktop · mixto con chat" width={1080} height={800}>
+          <DetailDesktop />
+        </DCArtboard>
+        <DCArtboard id="detail-m" label="Mobile · con plaza libre" width={296} height={620}>
+          <DetailMobile />
+        </DCArtboard>
+        <DCArtboard id="detail-full" label="Mobile · LLENO + lista espera" width={296} height={620}>
+          <DetailFull />
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============================ CREAR ============================ */}
+      <DCSection
+        id="create"
+        title="④ Crear pachanga — wizard 4 pasos"
+        subtitle="Categoría → día/hora → pista+nivel → plazas/notas. Validaciones inline (pistas ocupadas, franjas tomadas)."
+      >
+        <DCArtboard id="create-1" label="Paso 1 · Categoría" width={1080} height={720}>
+          <CreateWizardStep1 />
+        </DCArtboard>
+        <DCArtboard id="create-2" label="Paso 2 · Día y hora" width={1080} height={720}>
+          <CreateWizardStep2 />
+        </DCArtboard>
+        <DCArtboard id="create-3" label="Paso 3 · Pista + nivel" width={1080} height={720}>
+          <CreateWizardStep3 />
+        </DCArtboard>
+        <DCArtboard id="create-4" label="Paso 4 · Plazas + notas + resumen" width={1080} height={720}>
+          <CreateWizardStep4 />
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============================ RESERVAR PISTA ============================ */}
+      <DCSection
+        id="court"
+        title="⑤ Reservar pista — cuadrícula Doodle"
+        subtitle="Pistas en filas, horas en columnas. Selección por arrastre. Distingue 'pachanga' de 'reserva privada'. Móvil simplificado por pasos."
+      >
+        <DCArtboard id="court-d" label="Desktop · grid Doodle" width={1080} height={720}>
+          <CourtBooking />
+        </DCArtboard>
+        <DCArtboard id="court-m" label="Mobile · pista → franja" width={296} height={620}>
+          <CourtBookingMobile />
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============================ PERFIL ============================ */}
+      <DCSection
+        id="profile"
+        title="⑥ Perfil"
+        subtitle="Datos del usuario, próximas pachangas, creadas, historial, stats."
+      >
+        <DCArtboard id="profile-d" label="Desktop" width={1080} height={740}>
+          <ProfileDesktop />
+        </DCArtboard>
+        <DCArtboard id="profile-m" label="Mobile" width={296} height={620}>
+          <ProfileMobile />
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============================ AUTH ============================ */}
+      <DCSection
+        id="auth"
+        title="⑦ Auth — entrar y registrarse"
+        subtitle="Login con email/contraseña (NextAuth). Registro pide género y nivel inicial para el matching."
+      >
+        <DCArtboard id="auth-login" label="Login · split brand" width={1080} height={560}>
+          <AuthLogin />
+        </DCArtboard>
+        <DCArtboard id="auth-register" label="Registro · datos club" width={1080} height={660}>
+          <AuthRegister />
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============================ NOTIFS + EMPTY ============================ */}
+      <DCSection
+        id="extras"
+        title="⑧ Notificaciones y estados"
+        subtitle="Panel de notificaciones · push de recordatorio · estados vacío / error."
+      >
+        <DCArtboard id="notif-panel" label="Panel de notificaciones" width={1080} height={620}>
+          <NotificationsPanel />
+        </DCArtboard>
+        <DCArtboard id="notif-push" label="Push · recordatorio 1h antes" width={296} height={620}>
+          <PushToast />
+        </DCArtboard>
+        <DCArtboard id="empty" label="Estados vacío + error" width={1080} height={500}>
+          <EmptyState />
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>
