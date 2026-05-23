@@ -5,7 +5,6 @@ import {
   motion,
   useReducedMotion,
   useScroll,
-  useSpring,
   useTransform,
   type MotionValue,
 } from "framer-motion";
@@ -54,21 +53,13 @@ export function LogoReveal({
   const sectionRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
-  const { scrollYProgress } = useScroll({
+  const { scrollYProgress: p } = useScroll({
     target: sectionRef,
     offset: ["start start", "end end"],
   });
 
-  const p = useSpring(scrollYProgress, {
-    stiffness: 120,
-    damping: 28,
-    mass: 0.35,
-  });
-
   const opacity = useTransform(p, [0, 0.25, 0.7], [0, 1, 1]);
   const scale = useTransform(p, [0, 0.55], [0.82, 1]);
-  const blurPx = useTransform(p, [0, 0.4], [8, 0]);
-  const filter = useTransform(blurPx, (v) => `blur(${v}px)`);
   const glow = useTransform(
     p,
     [0, 0.5, 1],
@@ -154,10 +145,10 @@ export function LogoReveal({
           className="relative flex flex-col items-center"
         >
           <motion.div
-            style={{ opacity, scale, filter }}
-            className="relative h-[clamp(260px,55vh,520px)] aspect-[1138/1447]"
+            style={{ opacity, scale }}
+            className="relative h-[clamp(260px,55vh,520px)] aspect-[1138/1447] will-change-transform"
           >
-            <motion.div style={{ filter: glow }} className="absolute inset-0">
+            <motion.div style={{ filter: glow }} className="absolute inset-0 will-change-[filter]">
               <LogoLayer
                 clipPath="inset(0 0 58% 0)"
                 style={{ y: antlersY, opacity: antlersOpacity }}
