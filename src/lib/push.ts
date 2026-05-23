@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const webpush = require("web-push") as typeof import("web-push");
 
@@ -18,20 +21,41 @@ export interface PushSubscriptionRecord {
   createdAt: number;
 }
 
-const subscriptions = new Map<string, PushSubscriptionRecord>();
+const SUBS_FILE = path.join(process.cwd(), ".push-subscriptions.json");
+
+function readSubs(): Map<string, PushSubscriptionRecord> {
+  try {
+    const data = fs.readFileSync(SUBS_FILE, "utf-8");
+    const arr: PushSubscriptionRecord[] = JSON.parse(data);
+    return new Map(arr.map((s) => [s.endpoint, s]));
+  } catch {
+    return new Map();
+  }
+}
+
+function writeSubs(subs: Map<string, PushSubscriptionRecord>) {
+  fs.writeFileSync(SUBS_FILE, JSON.stringify(Array.from(subs.values()), null, 2));
+}
 
 export function saveSubscription(sub: PushSubscriptionRecord) {
-  subscriptions.set(sub.endpoint, { ...sub, createdAt: Date.now() });
+  const subs = readSubs();
+  subs.set(sub.endpoint, { ...sub, createdAt: Date.now() });
+  writeSubs(subs);
+  console.log(`[push] Subscription saved. Total: ${subs.size}`);
 }
 
 export function removeSubscription(endpoint: string) {
-  subscriptions.delete(endpoint);
+  const subs = readSubs();
+  subs.delete(endpoint);
+  writeSubs(subs);
+  console.log(`[push] Subscription removed. Total: ${subs.size}`);
 }
 
 export function getAllSubscriptions(): PushSubscriptionRecord[] {
-  return Array.from(subscriptions.values());
+  const subs = readSubs();
+  return Array.from(subs.values());
 }
 
 export function getSubscriptionCount(): number {
-  return subscriptions.size;
+  return readSubs().size;
 }

@@ -62,13 +62,19 @@ export function PushManager({ className }: { className?: string }) {
     setSending(true);
     try {
       const result = await sendTestPush({
-        title: "🏸 Pachanga en 1 hora",
-        body: "Tu pachanga empieza a las 19:00 en Pista 1 · outdoor. 3 confirmados, falta 1.",
+        title: "Pachanga en 1 hora",
+        body: "Tu pachanga empieza a las 19:00 en Pista 1 outdoor. 3 confirmados, falta 1.",
         url: "/pachangas/1",
       });
-      setMessage(`Enviada a ${result.sent} dispositivo(s)`);
+      if (result.sent > 0) {
+        setMessage(`Enviada a ${result.sent} dispositivo(s)`);
+      } else if (result.failed > 0) {
+        setMessage(`Fallo al enviar (${result.failed} error(es)). Mira la consola.`);
+      } else {
+        setMessage("No hay suscripciones activas. Desactiva y vuelve a activar.");
+      }
     } catch {
-      setMessage("Error al enviar la notificación");
+      setMessage("Error de red al enviar la notificación");
     }
     setSending(false);
     setTimeout(() => setMessage(""), 3000);

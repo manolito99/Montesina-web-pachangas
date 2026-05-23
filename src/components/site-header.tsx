@@ -33,7 +33,13 @@ function PaperHeader({ active }: { active?: SiteHeaderProps["active"] }) {
         </Link>
         <DesktopNav active={active} className="hidden md:flex" />
         <div className="ml-auto flex items-center gap-3">
-          <span aria-hidden className="hidden font-hand text-sm text-muted md:inline">🔔</span>
+          <Link
+            href="/notificaciones"
+            aria-label="Notificaciones"
+            className="font-hand text-sm text-muted transition-colors hover:text-ink"
+          >
+            🔔
+          </Link>
           <Link
             href="/login"
             className="inline-flex h-8 items-center rounded-full border-[1.5px] border-ink bg-lime px-3 text-xs font-bold text-ink shadow-neo-sm transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-none"
@@ -95,6 +101,13 @@ function NavyFadeHeader({ active }: { active?: SiteHeaderProps["active"] }) {
         <DesktopNav active={active} className="hidden md:flex" tone="navy-fade" linkInk={linkInk} />
 
         <div className="ml-auto flex items-center gap-3">
+          <Link
+            href="/notificaciones"
+            aria-label="Notificaciones"
+            className="font-hand text-sm text-lime transition-colors hover:text-foam"
+          >
+            🔔
+          </Link>
           <Link
             href="/login"
             className="inline-flex h-8 items-center rounded-full border-[1.5px] border-lime px-3 text-xs font-bold text-lime transition-colors hover:bg-lime hover:text-navy"

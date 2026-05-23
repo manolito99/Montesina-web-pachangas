@@ -94,16 +94,9 @@ self.addEventListener("push", (event) => {
     icon: payload.icon || "/icons/icon-192.png",
     badge: payload.badge || "/icons/icon-192.png",
     tag: payload.tag || "montesina-default",
-    renotify: true,
     data: {
       url: payload.url || "/",
-      ...payload.data,
     },
-    actions: [
-      { action: "open", title: "Abrir" },
-      { action: "dismiss", title: "Cerrar" },
-    ],
-    vibrate: [100, 50, 100],
   };
 
   event.waitUntil(

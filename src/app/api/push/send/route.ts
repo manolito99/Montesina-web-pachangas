@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
       badge = "/icons/icon-192.png",
       url = "/",
       tag,
-      data,
     } = body;
 
     const payload = JSON.stringify({
@@ -25,10 +24,10 @@ export async function POST(req: NextRequest) {
       badge,
       url,
       tag: tag || `montesina-${Date.now()}`,
-      data,
     });
 
     const subscriptions = getAllSubscriptions();
+    console.log(`[push] Sending to ${subscriptions.length} subscription(s)`);
 
     if (subscriptions.length === 0) {
       return NextResponse.json(
@@ -40,23 +39,27 @@ export async function POST(req: NextRequest) {
     const results = await Promise.allSettled(
       subscriptions.map(async (sub) => {
         try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: sub.keys,
-            },
+          console.log(`[push] Sending to endpoint: ${sub.endpoint.slice(0, 60)}...`);
+          const result = await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: sub.keys },
             payload,
           );
+          console.log(`[push] Success: status ${result.statusCode}`);
           return { endpoint: sub.endpoint, success: true };
         } catch (err: unknown) {
           const statusCode =
             err && typeof err === "object" && "statusCode" in err
               ? (err as { statusCode: number }).statusCode
               : 0;
+          const errBody =
+            err && typeof err === "object" && "body" in err
+              ? (err as { body: string }).body
+              : "";
+          console.error(`[push] Failed: status ${statusCode}, body: ${errBody}`);
           if (statusCode === 404 || statusCode === 410) {
             removeSubscription(sub.endpoint);
           }
-          return { endpoint: sub.endpoint, success: false, statusCode };
+          return { endpoint: sub.endpoint, success: false, statusCode, error: errBody };
         }
       }),
     );
@@ -65,9 +68,16 @@ export async function POST(req: NextRequest) {
       (r) => r.status === "fulfilled" && r.value.success,
     ).length;
     const failed = results.length - sent;
+    const errors = results
+      .filter((r) => r.status === "fulfilled" && !r.value.success)
+      .map((r) => r.status === "fulfilled" ? r.value : null)
+      .filter(Boolean);
 
-    return NextResponse.json({ sent, failed, total: subscriptions.length });
-  } catch {
+    console.log(`[push] Done: ${sent} sent, ${failed} failed`);
+
+    return NextResponse.json({ sent, failed, total: subscriptions.length, errors });
+  } catch (err) {
+    console.error("[push] Unexpected error:", err);
     return NextResponse.json(
       { error: "Failed to send notifications" },
       { status: 500 },

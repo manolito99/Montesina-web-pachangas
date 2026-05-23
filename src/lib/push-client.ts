@@ -62,7 +62,7 @@ export async function sendTestPush(options?: {
   title?: string;
   body?: string;
   url?: string;
-}): Promise<{ sent: number; failed: number }> {
+}): Promise<{ sent: number; failed: number; errors?: unknown[] }> {
   const res = await fetch("/api/push/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -72,7 +72,9 @@ export async function sendTestPush(options?: {
       url: options?.url ?? "/pachangas/1",
     }),
   });
-  return res.json();
+  const data = await res.json();
+  console.log("[push-client] send result:", data);
+  return data;
 }
 
 export function isPushSupported(): boolean {
