@@ -76,7 +76,7 @@ export default function Home() {
       </main>
       <SiteFooter />
       <div className="bg-paper-alt px-6 pb-6 text-center">
-        <a href="https://pachangasmontesina.cc/privacidad" className="text-xs text-muted underline hover:text-ink">
+        <a href="https://pachangasmontesina.cc/politica-de-privacidad" className="text-xs text-muted underline hover:text-ink">
           Politica de Privacidad
         </a>
         {" · "}

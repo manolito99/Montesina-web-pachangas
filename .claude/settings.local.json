@@ -29,7 +29,15 @@
       "Bash(git commit -m ' *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Nolo\\\\Music\\\\Montesiña_web_pachangas\" -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(Sort-Object)"
+      "Bash(Sort-Object)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Nolo\" -Directory -Depth 3 -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Cellar|cellar' } | ForEach-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\\" -Directory -Depth 1 -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Cellar|cellar|Repositorio' } | ForEach-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Repositorio\" -Directory | ForEach-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Repositorio\\\\Maxi\" -Directory | ForEach-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Repositorio\\\\Maxi\\\\CellarStudio\\\\nginx\" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Nolo\\\\Music\\\\Montesiña_web_pachangas\" -File -Depth 0 | ForEach-Object Name)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Nolo\\\\Music\\\\Montesiña_web_pachangas\\\\public\" -Recurse -File | ForEach-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Nolo\\\\Music\\\\Montesiña_web_pachangas\\\\.next\\\\standalone\" -Depth 0 -ErrorAction SilentlyContinue | ForEach-Object Name)"
     ]
   }
 }
