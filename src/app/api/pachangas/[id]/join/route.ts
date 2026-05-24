@@ -28,6 +28,15 @@ export async function POST(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    // Validate gender matches pachanga category
+    const user = await db.user.findUnique({ where: { id: userId }, select: { name: true, gender: true } });
+    if (pachanga.category === "M" && user?.gender !== "MALE") {
+      return NextResponse.json({ error: "Esta pachanga es solo para hombres" }, { status: 403 });
+    }
+    if (pachanga.category === "F" && user?.gender !== "FEMALE") {
+      return NextResponse.json({ error: "Esta pachanga es solo para mujeres" }, { status: 403 });
+    }
+
     const existing = await db.participation.findUnique({
       where: { userId_pachangaId: { userId, pachangaId: params.id } },
     });
@@ -56,7 +65,6 @@ export async function POST(
     }
 
     // Notify: someone joined
-    const user = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
     const pachangaFull = await db.pachanga.findUnique({
       where: { id: params.id },
       include: { court: true },

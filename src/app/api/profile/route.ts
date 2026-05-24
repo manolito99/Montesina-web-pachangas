@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -20,6 +20,7 @@ export async function GET() {
       image: true,
       gender: true,
       level: true,
+      profileCompleted: true,
       createdAt: true,
     },
   });
@@ -119,4 +120,33 @@ export async function GET() {
     upcoming,
     created,
   });
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  const userId = (session?.user as { id?: string })?.id;
+
+  if (!userId) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const { gender, level } = body;
+
+  if (!gender || !["MALE", "FEMALE"].includes(gender)) {
+    return NextResponse.json({ error: "Género inválido" }, { status: 400 });
+  }
+
+  const lvl = Number(level);
+  if (!lvl || lvl < 1 || lvl > 5) {
+    return NextResponse.json({ error: "Nivel debe ser 1-5" }, { status: 400 });
+  }
+
+  const user = await db.user.update({
+    where: { id: userId },
+    data: { gender, level: lvl, profileCompleted: true },
+    select: { id: true, name: true, gender: true, level: true },
+  });
+
+  return NextResponse.json(user);
 }

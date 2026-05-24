@@ -56,9 +56,10 @@ model User {
   emailVerified DateTime? @map("email_verified")
   image         String?
   password      String?
-  gender        Gender    @default(MALE)
-  level         Int       @default(3)
-  createdAt     DateTime  @default(now()) @map("created_at")
+  gender           Gender    @default(MALE)
+  level            Int       @default(3)
+  profileCompleted Boolean   @default(false) @map("profile_completed")
+  createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   accounts         Account[]

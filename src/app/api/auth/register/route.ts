@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
         password: hashed,
         gender: gender === "FEMALE" ? "FEMALE" : "MALE",
         level: Math.min(5, Math.max(1, parseInt(level) || 3)),
+        profileCompleted: true,
       },
     });
 
