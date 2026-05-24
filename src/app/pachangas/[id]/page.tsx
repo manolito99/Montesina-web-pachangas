@@ -174,7 +174,12 @@ export default function PachangaDetailPage() {
     }
     setActionLoading(true);
     try {
-      await fetch(`/api/pachangas/${id}/join`, { method: "POST" });
+      const res = await fetch(`/api/pachangas/${id}/join`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "No se pudo apuntar");
+        return;
+      }
       await fetchPachanga();
     } finally {
       setActionLoading(false);

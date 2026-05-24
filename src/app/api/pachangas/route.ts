@@ -54,6 +54,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const creator = await db.user.findUnique({ where: { id: userId }, select: { gender: true } });
+    if (category === "M" && creator?.gender !== "MALE") {
+      return NextResponse.json({ error: "Solo los hombres pueden crear pachangas masculinas" }, { status: 403 });
+    }
+    if (category === "F" && creator?.gender !== "FEMALE") {
+      return NextResponse.json({ error: "Solo las mujeres pueden crear pachangas femeninas" }, { status: 403 });
+    }
+
     const pachanga = await db.pachanga.create({
       data: {
         category,

@@ -164,11 +164,13 @@ function StepIndicator({ step }: { step: number }) {
 function Step1({
   category,
   setCategory,
+  userGender,
 }: {
   category: Category | null;
   setCategory: (c: Category) => void;
+  userGender: "MALE" | "FEMALE";
 }) {
-  const cats: Category[] = ["M", "F", "X"];
+  const cats: Category[] = userGender === "MALE" ? ["M", "X"] : ["F", "X"];
 
   return (
     <div>
@@ -721,6 +723,16 @@ export default function NuevaPachangaPage() {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
   const [courts, setCourts] = useState<CourtFromApi[]>([]);
+  const [userGender, setUserGender] = useState<"MALE" | "FEMALE">("MALE");
+
+  useEffect(() => {
+    if (authStatus === "authenticated") {
+      fetch("/api/profile")
+        .then((r) => r.json())
+        .then((data) => { if (data.user?.gender) setUserGender(data.user.gender); })
+        .catch(() => {});
+    }
+  }, [authStatus]);
 
   useEffect(() => {
     fetch("/api/courts")
@@ -823,6 +835,7 @@ export default function NuevaPachangaPage() {
             <Step1
               category={state.category}
               setCategory={(c) => patch({ category: c })}
+              userGender={userGender}
             />
           )}
           {state.step === 2 && (
