@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const webpush = require("web-push") as typeof import("web-push");
 import { db } from "@/lib/db";
 
