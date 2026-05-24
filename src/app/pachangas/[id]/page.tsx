@@ -408,6 +408,9 @@ function MainContent({
         <StatBox label="Precio">{priceDisplay}</StatBox>
       </div>
 
+      {/* Confirmed players list */}
+      <PlayersSection confirmed={confirmed} maxPlayers={data.maxPlayers} isCompleto={isCompleto} />
+
       {/* Mixed balance card */}
       {data.category === "X" && (
         <MixedBalanceCard confirmed={confirmed} maxPlayers={data.maxPlayers} isCompleto={isCompleto} />
@@ -683,6 +686,78 @@ function Sidebar({
     <div className="flex flex-col divide-y-[1.5px] divide-ink">
       <WaitlistSection waitlist={waitlist} isCompleto={isCompleto} />
       <ChatSection chatMessages={data.chatMessages} currentUserId={currentUserId} />
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────
+   Confirmed players list
+   ────────────────────────────────────────────── */
+
+function PlayersSection({
+  confirmed,
+  maxPlayers,
+  isCompleto,
+}: {
+  confirmed: Participation[];
+  maxPlayers: number;
+  isCompleto: boolean;
+}) {
+  const emptySlots = Math.max(maxPlayers - confirmed.length, 0);
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border-[1.5px] border-ink p-4",
+        isCompleto && "border-lime-deep bg-lime/5",
+      )}
+    >
+      <div className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
+        JUGADORES &middot; {confirmed.length}/{maxPlayers}
+      </div>
+
+      {confirmed.length === 0 ? (
+        <p className="mt-2 font-hand text-xs text-muted">
+          Nadie apuntado todavia. Se el primero!
+        </p>
+      ) : (
+        <div className="mt-3 space-y-2.5">
+          {confirmed.map((p, idx) => (
+            <div key={p.id} className="flex items-center gap-2.5">
+              <span className="w-5 text-center font-hand text-xs text-muted">
+                {idx + 1}
+              </span>
+              <Avatar
+                label={initial(p.user.name)}
+                size={28}
+                lime={isCompleto}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold text-ink">
+                  {p.user.name}
+                </div>
+                <LevelBalls value={p.user.level} size={8} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {emptySlots > 0 && (
+        <div className="mt-2.5 space-y-2.5">
+          {Array.from({ length: emptySlots }).map((_, i) => (
+            <div key={`empty-${i}`} className="flex items-center gap-2.5">
+              <span className="w-5 text-center font-hand text-xs text-muted">
+                {confirmed.length + i + 1}
+              </span>
+              <Avatar label="?" size={28} dashed />
+              <span className="font-hand text-xs text-muted">
+                Plaza libre
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
