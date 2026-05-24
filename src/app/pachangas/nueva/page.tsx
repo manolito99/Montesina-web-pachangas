@@ -246,21 +246,21 @@ function Step2({
         </div>
       </div>
 
-      {/* Time slot pills */}
+      {/* Time slot list */}
       <div>
         <p className="mb-2 text-sm font-semibold text-ink-2">
           Franja horaria
         </p>
-        <div className="grid grid-cols-4 gap-2 md:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
           {timeSlots.map((t) => (
             <button
               key={t.value}
               type="button"
               onClick={() => setTimeSlot(t.value)}
               className={cn(
-                "rounded-full border-[1.5px] px-2 py-1.5 text-xs font-semibold transition-all",
+                "rounded-lg border-[1.5px] px-3 py-2.5 text-center text-sm font-semibold transition-all",
                 timeSlot === t.value
-                  ? "border-lime-deep bg-lime text-ink"
+                  ? "border-[2px] border-lime-deep bg-lime text-ink"
                   : "border-ink bg-fill text-ink hover:bg-paper-alt",
               )}
             >
@@ -775,7 +775,7 @@ export default function NuevaPachangaPage() {
     <>
       <SiteHeader variant="paper" />
 
-      <main className="min-h-screen bg-paper pb-28">
+      <main className="min-h-screen bg-paper pb-40">
         {/* Top bar */}
         <div className="container py-4">
           <Link
