@@ -70,17 +70,17 @@ function addMinutes(h: number, m: number, mins: number): [number, number] {
 }
 
 function buildTimeSlots(): { label: string; value: string }[] {
-  const slots: { label: string; value: string }[] = [];
-  let h = 8;
-  let m = 0;
-  while (h < 23 || (h === 23 && m === 0)) {
+  const starts = [
+    [8, 0], [9, 30], [11, 0], [12, 30], [14, 0],
+    [15, 30], [17, 0], [18, 30], [20, 0], [21, 30],
+  ];
+  return starts.map(([h, m]) => {
     const [eh, em] = addMinutes(h, m, 90);
-    const label = `${pad(h)}:${pad(m)} — ${pad(eh)}:${pad(em)}`;
-    const value = `${pad(h)}:${pad(m)}`;
-    slots.push({ label, value });
-    [h, m] = addMinutes(h, m, 90);
-  }
-  return slots;
+    return {
+      label: `${pad(h)}:${pad(m)} — ${pad(eh)}:${pad(em)}`,
+      value: `${pad(h)}:${pad(m)}`,
+    };
+  });
 }
 
 const CATEGORY_META: Record<
@@ -833,8 +833,8 @@ export default function NuevaPachangaPage() {
         </div>
       </main>
 
-      {/* Sticky footer bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t-[1.5px] border-ink bg-paper">
+      {/* Sticky footer bar — bottom-[68px] on mobile to clear body padding for tab bar */}
+      <div className="fixed inset-x-0 bottom-[68px] z-30 border-t-[1.5px] border-ink bg-paper md:bottom-0">
         <div className="container flex items-center justify-between py-3">
           <span className="font-hand text-sm text-muted">
             paso {state.step} de 4
