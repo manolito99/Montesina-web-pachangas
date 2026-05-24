@@ -28,7 +28,17 @@ export function PushManager({ className }: { className?: string }) {
       return;
     }
     getCurrentSubscription().then((sub) => {
-      setStatus(sub ? "subscribed" : "default");
+      if (sub) {
+        setStatus("subscribed");
+        // Re-sync subscription with server on every load
+        fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: sub.toJSON() }),
+        }).catch(() => {});
+      } else {
+        setStatus("default");
+      }
     });
   }, []);
 
