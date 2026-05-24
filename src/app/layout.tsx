@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans antialiased text-ink">
         <SessionProvider>
           {children}
-          <InstallPrompt />
+          {/* <InstallPrompt /> disabled temporarily for Google OAuth verification */}
         </SessionProvider>
         <SwRegister />
       </body>
