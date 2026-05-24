@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -9,8 +9,13 @@ import { LevelBalls } from "@/components/ui/level-balls";
 import { NeoButton } from "@/components/ui/neo-button";
 import { NeoCard } from "@/components/ui/neo-card";
 import { AvatarRow } from "@/components/ui/avatar";
-import { COURTS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+
+interface CourtFromApi {
+  id: string;
+  name: string;
+  type: "INDOOR" | "OUTDOOR";
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -294,6 +299,7 @@ function Step3({
   setLevelMax,
   date,
   timeSlot,
+  courts,
 }: {
   court: string | null;
   setCourt: (c: string) => void;
@@ -303,6 +309,7 @@ function Step3({
   setLevelMax: (n: number) => void;
   date: string | null;
   timeSlot: string | null;
+  courts: CourtFromApi[];
 }) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -315,9 +322,9 @@ function Step3({
           </span>
         </p>
         <div className="flex flex-col gap-2">
-          {COURTS.map((c) => {
+          {courts.map((c) => {
             const selected = court === c.id;
-            const occupied = !c.free;
+            const occupied = false;
             return (
               <button
                 key={c.id}
@@ -339,19 +346,14 @@ function Step3({
 
                 <div className="flex-1">
                   <span className="text-sm font-bold text-ink">{c.name}</span>
-                  <span className="ml-2 text-xs text-muted">{c.type}</span>
+                  <span className="ml-2 text-xs text-muted">{c.type.toLowerCase()}</span>
                 </div>
 
                 {/* badge */}
                 <span
-                  className={cn(
-                    "rounded-full border-[1.2px] px-2 py-0.5 text-[10px] font-bold uppercase",
-                    c.free
-                      ? "border-lime-deep bg-lime-soft text-lime-deep"
-                      : "border-ink bg-fill-alt text-muted",
-                  )}
+                  className="rounded-full border-[1.2px] border-lime-deep bg-lime-soft px-2 py-0.5 text-[10px] font-bold uppercase text-lime-deep"
                 >
-                  {c.free ? "LIBRE" : "OCUPADA"}
+                  LIBRE
                 </span>
 
                 {selected && (
@@ -469,13 +471,15 @@ function Step4({
   setPlayers,
   setPrice,
   setNotes,
+  courts,
 }: {
   state: WizardState;
   setPlayers: (p: 2 | 4) => void;
   setPrice: (v: string) => void;
   setNotes: (v: string) => void;
+  courts: CourtFromApi[];
 }) {
-  const courtObj = COURTS.find((c) => c.id === state.court);
+  const courtObj = courts.find((c) => c.id === state.court);
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -608,6 +612,14 @@ export default function NuevaPachangaPage() {
   });
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
+  const [courts, setCourts] = useState<CourtFromApi[]>([]);
+
+  useEffect(() => {
+    fetch("/api/courts")
+      .then((r) => r.json())
+      .then(setCourts)
+      .catch(() => {});
+  }, []);
 
   function patch(partial: Partial<WizardState>) {
     setState((prev) => ({ ...prev, ...partial }));
@@ -717,6 +729,7 @@ export default function NuevaPachangaPage() {
               setLevelMax={(n) => patch({ levelMax: n })}
               date={state.date}
               timeSlot={state.timeSlot}
+              courts={courts}
             />
           )}
           {state.step === 4 && (
@@ -725,6 +738,7 @@ export default function NuevaPachangaPage() {
               setPlayers={(p) => patch({ players: p })}
               setPrice={(v) => patch({ price: v })}
               setNotes={(v) => patch({ notes: v })}
+              courts={courts}
             />
           )}
         </div>

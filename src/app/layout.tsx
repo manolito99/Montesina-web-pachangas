@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Kalam } from "next/font/google";
+import { SwRegister } from "@/components/layout/sw-register";
 import "./globals.css";
 
 const grotesk = Space_Grotesk({
@@ -47,11 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" className={`${grotesk.variable} ${kalam.variable}`}>
       <body className="font-sans antialiased text-ink">
         {children}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js')})}`,
-          }}
-        />
+        <SwRegister />
       </body>
     </html>
   );

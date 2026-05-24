@@ -1,20 +1,10 @@
-const CACHE_NAME = "montesina-v2";
-const PRECACHE_URLS = [
-  "/",
-  "/pachangas",
-  "/reservas",
-  "/perfil",
-  "/notificaciones",
-];
+const CACHE_NAME = "montesina-v3";
 
 // ──────────────────────────────────────
 // Install & Activate
 // ──────────────────────────────────────
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
-  );
   self.skipWaiting();
 });
 
@@ -30,7 +20,8 @@ self.addEventListener("activate", (event) => {
 });
 
 // ──────────────────────────────────────
-// Fetch — network-first HTML, cache-first assets
+// Fetch — network-first for everything
+// Never cache _next/static chunks (they change on every rebuild)
 // ──────────────────────────────────────
 
 self.addEventListener("fetch", (event) => {
@@ -39,6 +30,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Never cache Next.js build chunks — stale chunks cause webpack errors
+  if (url.pathname.startsWith("/_next/")) return;
+
+  // Network-first for HTML pages
   if (event.request.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
       fetch(event.request)
@@ -49,16 +44,16 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => caches.match(event.request))
     );
-  } else {
+    return;
+  }
+
+  // Cache-first only for static assets (icons, logos)
+  if (url.pathname.startsWith("/icons/") || url.pathname.endsWith(".svg")) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         if (cached) return cached;
         return fetch(event.request).then((response) => {
-          if (
-            response.ok &&
-            (url.pathname.startsWith("/_next/static/") ||
-              url.pathname.startsWith("/icons/"))
-          ) {
+          if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
@@ -66,6 +61,7 @@ self.addEventListener("fetch", (event) => {
         });
       })
     );
+    return;
   }
 });
 
@@ -132,7 +128,7 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 // ──────────────────────────────────────
-// Push Subscription Change (auto re-subscribe)
+// Push Subscription Change
 // ──────────────────────────────────────
 
 self.addEventListener("pushsubscriptionchange", (event) => {
