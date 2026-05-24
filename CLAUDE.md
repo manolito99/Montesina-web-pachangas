@@ -2,7 +2,7 @@
 
 ## Qué es esto
 
-PWA para organizar pachangas de pádel (masculino, femenino, mixto) del club Montesiña. Los socios se registran, crean pachangas, se apuntan a partidos y comparten por WhatsApp. Backend funcional con PostgreSQL.
+PWA para organizar pachangas de pádel (masculino, femenino, mixto) del club Montesiña en Pontevedra. Los socios se registran con Google o email, crean pachangas, se apuntan a partidos, comparten por WhatsApp y reciben push notifications filtradas por sus preferencias. Backend funcional con PostgreSQL, datos 100% reales (sin mocks).
 
 ## Stack
 
@@ -11,22 +11,22 @@ PWA para organizar pachangas de pádel (masculino, femenino, mixto) del club Mon
 - **Tailwind CSS 3.4** con paleta custom neo-brutalist
 - **Prisma 6** ORM → PostgreSQL 16
 - **NextAuth v4** (Credentials + Google OAuth)
+- **web-push** para notificaciones push (VAPID, filtradas por preferencias)
 - **Framer Motion** para el logo reveal scroll-linked
-- **web-push** para notificaciones push (VAPID)
-- **Docker** (Dockerfile.dev para dev, Dockerfile multi-stage para prod)
 - **bcryptjs** para hash de contraseñas
+- **Docker** (Dockerfile.dev + Dockerfile multi-stage prod)
 
 ## Comandos
 
 ```bash
-npm run dev          # dev server (o docker compose up)
-npm run build        # build producción
-npm run lint         # ESLint
-npm run typecheck    # tsc --noEmit
-npm run db:migrate   # prisma migrate dev
-npm run db:seed      # prisma db seed
-npm run db:studio    # prisma studio (GUI para DB)
-npm run db:reset     # prisma migrate reset (borra y recrea)
+npm run dev              # dev server (o docker compose up)
+npm run build            # build producción
+npm run lint             # ESLint
+npm run typecheck        # tsc --noEmit
+npm run db:migrate       # prisma migrate dev
+npm run db:seed          # prisma db seed (solo crea las 3 pistas del club)
+npm run db:studio        # prisma studio (GUI para DB)
+npm run db:reset         # prisma migrate reset (borra y recrea)
 ```
 
 Docker:
@@ -38,7 +38,7 @@ docker exec montesina-web npx prisma generate   # regenerar client tras cambio d
 docker exec -e DATABASE_URL="postgresql://montesina:montesina@db:5432/montesina?schema=public" montesina-web npx prisma migrate dev --name <nombre>
 ```
 
-**IMPORTANTE**: El volumen `/app/node_modules` en docker-compose.yml aísla los node_modules del container. Si añades un paquete, instálalo DENTRO del container con `docker exec`, o haz rebuild con `docker compose up -d --build`. Después de cada migración de Prisma, ejecuta `npx prisma generate` dentro del container y reinicia.
+**IMPORTANTE**: El volumen `/app/node_modules` aísla los node_modules del container. Instala paquetes dentro con `docker exec` o haz rebuild. El `Dockerfile.dev` ejecuta `prisma generate` automáticamente al construir.
 
 ## Arquitectura de archivos
 
@@ -46,98 +46,87 @@ docker exec -e DATABASE_URL="postgresql://montesina:montesina@db:5432/montesina?
 src/
 ├── app/                                # Next.js App Router
 │   ├── page.tsx                        # / — Home (navy hero desktop + compacto mobile)
-│   ├── layout.tsx                      # Root layout: fonts, SessionProvider, SW
+│   ├── layout.tsx                      # Root layout: fonts, SessionProvider, SwRegister
 │   ├── manifest.ts                     # PWA manifest
 │   ├── globals.css                     # Tailwind + CSS vars
 │   ├── (auth)/                         # Route group sin shell
-│   │   ├── layout.tsx
-│   │   ├── login/page.tsx              # Login funcional (email + Google)
-│   │   └── registro/page.tsx           # Registro funcional (nombre, email, pass, género, nivel)
+│   │   ├── login/page.tsx              # Login funcional (email + Google OAuth)
+│   │   └── registro/page.tsx           # Registro funcional (nombre, email, pass, género, nivel + Google)
 │   ├── pachangas/
-│   │   ├── page.tsx                    # Listado (fetch API) + filtros
+│   │   ├── page.tsx                    # Listado (fetch API) + filtros — público
 │   │   ├── [id]/page.tsx              # Detalle (fetch API) + apuntarme/salir + compartir WhatsApp
-│   │   └── nueva/page.tsx              # Wizard crear → POST /api/pachangas
-│   ├── reservas/page.tsx               # Booking pistas (OCULTO en nav, guardado para futuro)
-│   ├── perfil/page.tsx                 # Perfil con tabs + stats
-│   ├── notificaciones/page.tsx         # Notificaciones + PushManager
+│   │   └── nueva/page.tsx              # Wizard crear — requiere autenticación
+│   ├── reservas/page.tsx               # OCULTO en nav (reservas externas al club)
+│   ├── perfil/page.tsx                 # Perfil con datos reales + stats de DB
+│   ├── notificaciones/page.tsx         # Push manager + preferencias personalizables
 │   └── api/
 │       ├── auth/
 │       │   ├── [...nextauth]/route.ts  # NextAuth handler
 │       │   └── register/route.ts       # POST crear cuenta con bcrypt
 │       ├── pachangas/
-│       │   ├── route.ts                # GET listar, POST crear
+│       │   ├── route.ts                # GET listar, POST crear (auth required)
 │       │   └── [id]/
 │       │       ├── route.ts            # GET detalle
-│       │       └── join/route.ts       # POST apuntarse, DELETE salir
+│       │       └── join/route.ts       # POST apuntarse, DELETE salir (auth required)
 │       ├── courts/route.ts             # GET listar, POST crear personalizada
+│       ├── profile/route.ts            # GET perfil + stats del usuario autenticado
+│       ├── notifications/prefs/route.ts # GET/PUT preferencias de notificación
 │       └── push/
-│           ├── subscribe/route.ts      # POST/DELETE suscripción push
-│           └── send/route.ts           # POST enviar push a todos
+│           ├── subscribe/route.ts      # POST/DELETE suscripción push (vinculada a userId)
+│           └── send/route.ts           # POST enviar push (test)
 │
 ├── components/
 │   ├── layout/                         # Shell y navegación
-│   │   ├── site-header.tsx             # Header paper | navy-fade con UserMenu
-│   │   ├── site-footer.tsx             # Footer
+│   │   ├── site-header.tsx             # Header paper | navy-fade con UserMenu dinámico
+│   │   ├── site-footer.tsx
 │   │   ├── mobile-tabs.tsx             # Bottom tabs: Inicio / Pachangas / Yo
 │   │   ├── logo-reveal.tsx             # Scroll-linked logo reveal
-│   │   ├── user-menu.tsx               # Avatar/iniciales logueado o "Entrar"
-│   │   ├── session-provider.tsx        # NextAuth SessionProvider wrapper
-│   │   └── sw-register.tsx             # Service Worker registration (useEffect)
+│   │   ├── user-menu.tsx               # Avatar/foto Google cuando logueado, "Entrar" si no
+│   │   ├── session-provider.tsx        # NextAuth SessionProvider
+│   │   └── sw-register.tsx             # SW register + auto-sync push subscription
 │   ├── features/
-│   │   └── push-manager.tsx            # UI push subscribe/test
+│   │   └── push-manager.tsx            # UI activar/desactivar push + test
 │   └── ui/                             # 14 primitivas reutilizables
-│       ├── neo-button.tsx              # primary / ghost / outlineLime / secondary
-│       ├── neo-card.tsx                # accent / dashed / flat
-│       ├── neo-input.tsx               # NeoInput + NeoTextarea
-│       ├── neo-checkbox.tsx            # Checkbox lime
-│       ├── pachanga-card.tsx           # Card principal de pachanga
-│       ├── cat-chip.tsx                # M / F / X chip de categoría
-│       ├── level-balls.tsx             # 1-5 bolitas de nivel
-│       ├── avatar.tsx                  # Avatar + AvatarRow
-│       ├── filter-chip.tsx             # Pill toggle para filtros
-│       ├── stat-box.tsx                # Label + valor grande
-│       ├── page-tabs.tsx               # Tabs horizontales con underline
-│       ├── chat-message.tsx            # Burbuja de chat
-│       ├── empty-state.tsx             # Estado vacío / error
-│       └── fab.tsx                     # Floating action button "+"
 │
 ├── lib/
 │   ├── utils.ts                        # cn() = clsx + tailwind-merge
-│   ├── types.ts                        # Tipos compartidos (Pachanga, Court, etc.)
+│   ├── types.ts                        # Tipos compartidos
 │   ├── db.ts                           # Prisma client singleton
 │   ├── auth.ts                         # NextAuth config (Credentials + Google)
-│   ├── get-user.ts                     # getCurrentUserId() server-side helper
-│   ├── mock-data.ts                    # Datos mock legacy (perfil, notificaciones, booking)
+│   ├── get-user.ts                     # getCurrentUserId() server-side
+│   ├── mock-data.ts                    # Legacy (solo booking grid, no usado en flujos principales)
 │   └── services/
-│       ├── push.ts                     # web-push server (subs en fichero JSON)
+│       ├── push.ts                     # web-push: sendPushToAll, sendPushFiltered (respeta prefs)
 │       └── push-client.ts             # Push API browser-side
 │
-├── config/constants.ts                 # Constantes de la app
+├── config/constants.ts
 ├── assets/                             # SVGs como React components
-└── types/svg.d.ts                      # Declaración tipos SVGR
+└── types/svg.d.ts
 
 prisma/
-├── schema.prisma                       # Schema completo (User, Account, Session, Pachanga, Court, etc.)
-├── seed.ts                             # Seed: 3 pistas club + 4 users + 2 pachangas
-└── migrations/                         # Historial de migraciones
+├── schema.prisma                       # Schema completo
+├── seed.ts                             # Solo crea las 3 pistas del club (sin datos ficticios)
+└── migrations/
 
 docs/wireframes/                        # Wireframes JSX originales
-public/                                 # SW, iconos PWA, logos estáticos
+public/                                 # SW, iconos PWA, logos
 ```
 
-## Base de datos (Prisma + PostgreSQL)
+## Base de datos
 
-### Modelos principales
+### Modelos
 
 | Modelo | Descripción |
 |--------|-------------|
-| `User` | Socios. name, email, password (bcrypt), gender, level. Nullable password para users de Google. |
-| `Account` | NextAuth: cuentas OAuth vinculadas (Google, etc.) |
-| `Session` | NextAuth: sesiones activas |
-| `Pachanga` | Partidos. category (M/F/X), date, duration, court, level range, price, status. |
-| `Participation` | Relación User↔Pachanga. Status: CONFIRMED, WAITLIST, CANCELLED. |
-| `Court` | Pistas. 3 del club (isClub=true): Montesiña (outdoor), Lebrón (indoor), Pabellón (indoor). Los usuarios pueden crear pistas personalizadas. |
+| `User` | Socios. name, email, password (nullable para Google), gender, level, image. |
+| `Account` | NextAuth: cuentas OAuth vinculadas (Google). |
+| `Session` | NextAuth: sesiones. |
+| `Pachanga` | Partidos. category (M/F/X), date, duration (90min), court, levelMin-Max, price, status. |
+| `Participation` | User↔Pachanga. Status: CONFIRMED / WAITLIST / CANCELLED. |
+| `Court` | 3 del club (isClub=true) + personalizadas creadas por usuarios. |
 | `ChatMessage` | Mensajes del chat de cada pachanga. |
+| `NotificationPrefs` | Preferencias push por usuario: categorías, nivel, pista, recordatorios. |
+| `PushSubscription` | Suscripciones push vinculadas a userId para filtrado por preferencias. |
 
 ### Pistas del club
 
@@ -147,102 +136,96 @@ public/                                 # SW, iconos PWA, logos estáticos
 | Lebrón | Indoor | `court-lebron` |
 | Pabellón | Indoor | `court-pavillon` |
 
-### Seed (usuarios demo)
+Los usuarios pueden crear pistas personalizadas con nombre, tipo y ubicación.
 
-| Email | Password | Nivel | Género |
-|-------|----------|-------|--------|
-| javi@correo.com | demo123 | 3 | M |
-| marta@correo.com | demo123 | 3 | F |
-| carlos@correo.com | demo123 | 4 | M |
-| lucia@correo.com | demo123 | 2 | F |
+### Franjas horarias
 
-## Autenticación (NextAuth v4)
+Bloques fijos de 90 minutos, siempre disponibles (reservas externas al club):
 
-- **Credentials**: email + password con bcrypt
-- **Google OAuth**: configurable via `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` en `.env`
-- **Sesión**: JWT strategy con user ID en el token
-- **Páginas custom**: `/login` y `/registro`
-- **Adapter**: Prisma (cuentas OAuth y sesiones en DB)
-- **Callback URLs de Google**: `http://localhost:3000/api/auth/callback/google` + producción
-- Si Google vars están vacías, el botón de Google no se muestra
+| # | Inicio | Fin |
+|---|--------|-----|
+| 1 | 08:00 | 09:30 |
+| 2 | 09:30 | 11:00 |
+| 3 | 11:00 | 12:30 |
+| 4 | 12:30 | 14:00 |
+| 5 | 14:00 | 15:30 |
+| 6 | 15:30 | 17:00 |
+| 7 | 17:00 | 18:30 |
+| 8 | 18:30 | 20:00 |
+| 9 | 20:00 | 21:30 |
+| 10 | 21:30 | 23:00 |
 
-### Header dinámico
+Días disponibles: hoy + 7 días hacia adelante.
 
-- **No logueado**: muestra botón "Entrar" → `/login`
-- **Logueado**: muestra avatar con iniciales (o foto de Google) → `/perfil`, botón "Salir"
-- Funciona en ambas variantes del header (paper y navy-fade)
+## Autenticación
 
-## Flujos funcionales (end-to-end)
+- **Google OAuth**: principal. Credenciales en `.env` (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET).
+- **Email/password**: registro con bcrypt, login via NextAuth Credentials provider.
+- **Sesión JWT** con userId en el token.
+- **Páginas custom**: `/login` y `/registro` con botón de Google y formulario.
+- **Protección**: crear pachanga y apuntarse requieren autenticación. Ver listado y detalle es público.
+- **Header dinámico**: foto Google / iniciales cuando logueado, "Entrar" si no.
 
-| Flujo | Frontend | Backend | Estado |
-|-------|----------|---------|--------|
-| Registrarse | `/registro` form | POST `/api/auth/register` + auto-signin | ✅ |
-| Login email | `/login` form | NextAuth credentials | ✅ |
-| Login Google | `/login` botón Google | NextAuth Google provider | ✅ |
-| Crear pachanga | Wizard 4 pasos | POST `/api/pachangas` | ✅ |
-| Ver listado | `/pachangas` | GET `/api/pachangas` | ✅ |
-| Ver detalle | `/pachangas/[id]` | GET `/api/pachangas/[id]` | ✅ |
-| Apuntarme | Botón en detalle | POST `/api/pachangas/[id]/join` | ✅ |
-| Salir | Botón en detalle | DELETE `/api/pachangas/[id]/join` | ✅ |
-| Compartir WhatsApp | Botón en detalle | Cliente (wa.me link) | ✅ |
-| Crear pista custom | Form en wizard step 3 | POST `/api/courts` | ✅ |
-| Push notifications | PushManager en `/notificaciones` | POST `/api/push/send` | ✅ |
+### Redirect URIs de Google
 
-## Paleta de colores
+```
+http://localhost:3000/api/auth/callback/google
+https://TU-TUNNEL.trycloudflare.com/api/auth/callback/google
+https://TU-DOMINIO-PROD/api/auth/callback/google
+```
 
-| Token | Hex | Uso |
-|-------|-----|-----|
-| `paper` / `paper-alt` | `#f5f2ea` / `#ece8dc` | Fondos principales |
-| `fill` | `#ffffff` | Cards, inputs |
-| `ink` / `ink-2` | `#1a1a1a` / `#3a3a3a` | Texto |
-| `muted` | `#7a7670` | Texto terciario |
-| `lime` / `lime-deep` / `lime-soft` | `#c8e84a` / `#9fc93c` / `#fafce0` | Acentos |
-| `navy` / `navy-deep` | `#0F1A2E` / `#0B1220` | Fondos dark |
-| `foam` / `foam-muted` | `#E8ECF2` / `#a5b0c3` | Texto sobre navy |
-| `cat-masc` / `cat-fem` / `cat-mix` | `#5b8aef` / `#e57db5` / `#9fc93c` | Chips categoría |
+## Flujos funcionales (end-to-end con datos reales)
 
-## Tipografía
+| Flujo | Requiere auth | Endpoint |
+|-------|---------------|----------|
+| Registrarse (email o Google) | No | POST /api/auth/register + NextAuth |
+| Ver listado pachangas | No | GET /api/pachangas |
+| Ver detalle pachanga | No | GET /api/pachangas/[id] |
+| Crear pachanga (wizard 4 pasos) | **Sí** | POST /api/pachangas |
+| Apuntarme / Salir | **Sí** | POST/DELETE /api/pachangas/[id]/join |
+| Compartir por WhatsApp | No | Cliente (wa.me link con datos formateados) |
+| Crear pista personalizada | Sí | POST /api/courts |
+| Ver perfil + stats | **Sí** | GET /api/profile |
+| Configurar preferencias push | **Sí** | GET/PUT /api/notifications/prefs |
+| Push al crear pachanga | Auto | sendPushFiltered (respeta prefs del receptor) |
+| Push al apuntarse | Auto | sendPushToAll |
 
-- **`font-sans`**: Space Grotesk (400-700) — UI
-- **`font-hand`**: Kalam (400, 700) — acentos decorativos
+## Push Notifications
 
-## Convenciones de código
-
-- **Server components** por defecto, `"use client"` solo para interactividad
-- **Mobile-first** con `md:` breakpoint. Pattern `md:hidden` / `hidden md:block`
-- **`cn()`** para clases condicionales, **Tailwind puro** sin inline styles
-- **Bordes**: `border-[1.5px] border-ink`, dashed: `border-dashed border-muted`
-- **Labels**: `text-[11px] font-bold uppercase tracking-widest2 text-muted`
-- **Paquetes dentro de Docker**: siempre `docker exec montesina-web npm install <pkg>`
+- **Suscripciones en DB** (`push_subscriptions`) vinculadas a userId.
+- **Auto-sync**: SwRegister re-envía la suscripción al servidor en cada carga de página.
+- **sendPushFiltered()**: al crear pachanga, solo notifica a usuarios cuyas preferencias coincidan (categoría, nivel, pista).
+- **sendPushToAll()**: al apuntarse alguien, notifica a todos.
+- **Preferencias configurables**: nuevas pachangas (con filtros de categoría/nivel/pista), plazas libres, recordatorios (30min/1h/2h), alguien se apunta a mi pachanga.
 
 ## Variables de entorno (.env)
 
 | Variable | Descripción |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection (usa `db` hostname en Docker) |
-| `NEXTAUTH_SECRET` | Secret para JWT sessions |
-| `NEXTAUTH_URL` | URL base de la app |
+| `DATABASE_URL` | PostgreSQL (usa `db` hostname en Docker) |
+| `NEXTAUTH_SECRET` | JWT session secret |
+| `NEXTAUTH_URL` | URL base (cambiar para tunnel/producción) |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | VAPID public key para push |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | VAPID public key |
 | `VAPID_PRIVATE_KEY` | VAPID private key |
 | `VAPID_SUBJECT` | VAPID subject (mailto:) |
 
-## PWA
+## Convenciones de código
 
-- **Manifest**: `src/app/manifest.ts`, display standalone, theme navy
-- **Service Worker**: `public/sw.js` v3 — network-first HTML, nunca cachea `/_next/*`, push handler
-- **Iconos**: `public/icons/` (192, 512, maskable, apple-touch-icon)
-- **Registro**: `<SwRegister>` client component con useEffect (no inline script)
+- **Server components** por defecto, `"use client"` solo para interactividad.
+- **Mobile-first** con `md:` breakpoint. Pattern `md:hidden` / `hidden md:block`.
+- **`cn()`** para clases condicionales, **Tailwind puro**.
+- **Auth en API routes**: `getServerSession(authOptions)` para obtener userId real.
+- **Paquetes en Docker**: siempre `docker exec montesina-web npm install <pkg>`.
+- **Prisma tras cambio schema**: migrar + `prisma generate` dentro del container + restart.
 
 ## Qué falta por hacer
 
-- **Autenticación en API routes**: Reemplazar `DEMO_USER_ID` hardcoded por `getCurrentUserId()` real en las API routes de pachangas
-- **Perfil funcional**: Conectar `/perfil` a datos reales del usuario autenticado
-- **Listado calendario**: Wireframe ListC (vista semanal)
-- **Comunidad**: La ruta `/comunidad` no tiene página
-- **Reservas**: `/reservas` oculta en nav (se gestiona fuera). Reactivar descomentando en header + mobile-tabs
-- **Chat funcional**: WebSocket o polling para mensajes en tiempo real
-- **Push en eventos**: Enviar push automático al crear pachanga, al apuntarse, recordatorios
-- **Tests**: Playwright para e2e
-- **Producción**: Configurar dominio real, HTTPS, NEXTAUTH_URL de producción
+- **Chat funcional**: WebSocket o polling para mensajes en tiempo real en el detalle.
+- **Editar perfil**: página `/perfil/editar` para cambiar nivel, género, nombre.
+- **Comunidad**: la ruta `/comunidad` del nav no tiene página.
+- **Recordatorios automáticos**: cron job que envíe push X minutos antes de una pachanga según las prefs del usuario.
+- **Cancelar pachanga**: el organizador debería poder cancelar y notificar a todos los participantes.
+- **Tests**: Playwright para e2e de los flujos principales.
+- **Producción**: dominio real, HTTPS, NEXTAUTH_URL de producción, secret seguro.
