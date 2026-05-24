@@ -67,6 +67,7 @@ model User {
   participations   Participation[]
   chatMessages     ChatMessage[]
   createdCourts    Court[]        @relation("courtCreator")
+  notifPrefs       NotificationPrefs?
 
   @@map("users")
 }
@@ -151,7 +152,8 @@ model Court {
   createdBy String?   @map("created_by")
   creator   User?     @relation("courtCreator", fields: [createdBy], references: [id])
   createdAt DateTime  @default(now()) @map("created_at")
-  pachangas Pachanga[]
+  pachangas  Pachanga[]
+  notifPrefs NotificationPrefs[]
 
   @@map("courts")
 }
@@ -173,4 +175,29 @@ model ChatMessage {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("chat_messages")
+}
+
+// ─── Notification Preferences ────────────────────────────
+
+model NotificationPrefs {
+  id              String  @id @default(cuid())
+  userId          String  @unique @map("user_id")
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  newPachanga     Boolean @default(true) @map("new_pachanga")
+  onlyMyLevel     Boolean @default(true) @map("only_my_level")
+  catMasculino    Boolean @default(true) @map("cat_masculino")
+  catFemenino     Boolean @default(true) @map("cat_femenino")
+  catMixto        Boolean @default(true) @map("cat_mixto")
+  plazaLibre      Boolean @default(false) @map("plaza_libre")
+  recordatorio    Boolean @default(true)
+  minutesBefore   Int     @default(60) @map("minutes_before")
+  alguienSeApunta Boolean @default(true) @map("alguien_se_apunta")
+  courtId         String? @map("court_id")
+  court           Court?  @relation(fields: [courtId], references: [id])
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_prefs")
 }
