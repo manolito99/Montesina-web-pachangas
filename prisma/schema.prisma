@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  avatar    String?
+  gender    Gender   @default(MALE)
+  level     Int      @default(3)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  createdPachangas Pachanga[]     @relation("organizer")
+  participations   Participation[]
+  chatMessages     ChatMessage[]
+
+  @@map("users")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+// ─── Pachangas ───────────────────────────────────────────
+
+model Pachanga {
+  id        String         @id @default(cuid())
+  category  Category
+  date      DateTime
+  duration  Int            @default(90)
+  courtId   String         @map("court_id")
+  court     Court          @relation(fields: [courtId], references: [id])
+  levelMin  Int            @default(1) @map("level_min")
+  levelMax  Int            @default(5) @map("level_max")
+  maxPlayers Int           @default(4) @map("max_players")
+  price     Decimal        @default(0) @db.Decimal(6, 2)
+  notes     String?
+  status    PachangaStatus @default(OPEN)
+
+  organizerId String       @map("organizer_id")
+  organizer   User         @relation("organizer", fields: [organizerId], references: [id])
+
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  participations Participation[]
+  chatMessages   ChatMessage[]
+
+  @@map("pachangas")
+}
+
+enum Category {
+  M
+  F
+  X
+}
+
+enum PachangaStatus {
+  OPEN
+  FULL
+  CANCELLED
+  FINISHED
+}
+
+// ─── Participations ──────────────────────────────────────
+
+model Participation {
+  id         String              @id @default(cuid())
+  userId     String              @map("user_id")
+  user       User                @relation(fields: [userId], references: [id])
+  pachangaId String              @map("pachanga_id")
+  pachanga   Pachanga            @relation(fields: [pachangaId], references: [id])
+  status     ParticipationStatus @default(CONFIRMED)
+  position   Int?
+  joinedAt   DateTime            @default(now()) @map("joined_at")
+
+  @@unique([userId, pachangaId])
+  @@map("participations")
+}
+
+enum ParticipationStatus {
+  CONFIRMED
+  WAITLIST
+  CANCELLED
+}
+
+// ─── Courts ──────────────────────────────────────────────
+
+model Court {
+  id   String    @id @default(cuid())
+  name String
+  type CourtType
+  pachangas Pachanga[]
+
+  @@map("courts")
+}
+
+enum CourtType {
+  INDOOR
+  OUTDOOR
+}
+
+// ─── Chat ────────────────────────────────────────────────
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  text       String
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  pachangaId String   @map("pachanga_id")
+  pachanga   Pachanga @relation(fields: [pachangaId], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("chat_messages")
+}

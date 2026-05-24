@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { CatChip } from "@/components/ui/cat-chip";
@@ -591,6 +592,7 @@ function Step4({
 /* ------------------------------------------------------------------ */
 
 export default function NuevaPachangaPage() {
+  const router = useRouter();
   const [state, setState] = useState<WizardState>({
     step: 1,
     category: null,
@@ -604,6 +606,8 @@ export default function NuevaPachangaPage() {
     price: "8,00",
     notes: "",
   });
+  const [publishing, setPublishing] = useState(false);
+  const [error, setError] = useState("");
 
   function patch(partial: Partial<WizardState>) {
     setState((prev) => ({ ...prev, ...partial }));
@@ -618,6 +622,49 @@ export default function NuevaPachangaPage() {
   function goBack() {
     if (state.step > 1) {
       patch({ step: (state.step - 1) as WizardState["step"] });
+    }
+  }
+
+  async function handlePublish() {
+    setPublishing(true);
+    setError("");
+
+    const selectedDay = DAY_OPTIONS.find((d) => d.value === state.date);
+    const dayLabel = selectedDay?.label ?? "HOY";
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const dayNum = parseInt(dayLabel.split(" ")[1]) || now.getDate();
+    const [hours, minutes] = (state.timeSlot ?? "19:00").split(":").map(Number);
+    const pachangaDate = new Date(year, month, dayNum, hours, minutes);
+
+    try {
+      const res = await fetch("/api/pachangas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: state.category,
+          date: pachangaDate.toISOString(),
+          duration: state.duration,
+          courtId: state.court,
+          levelMin: state.levelMin,
+          levelMax: state.levelMax,
+          maxPlayers: state.players,
+          price: parseFloat(state.price.replace(",", ".")) || 0,
+          notes: state.notes || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al crear");
+      }
+
+      const pachanga = await res.json();
+      router.push(`/pachangas/${pachanga.id}`);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al publicar");
+      setPublishing(false);
     }
   }
 
@@ -704,9 +751,16 @@ export default function NuevaPachangaPage() {
                 Siguiente
               </NeoButton>
             ) : (
-              <NeoButton size="sm" disabled={!canAdvance(state)}>
-                Publicar pachanga &#10003;
+              <NeoButton
+                size="sm"
+                disabled={!canAdvance(state) || publishing}
+                onClick={handlePublish}
+              >
+                {publishing ? "Publicando…" : "Publicar pachanga ✓"}
               </NeoButton>
+            )}
+            {error && (
+              <span className="text-xs text-rose">{error}</span>
             )}
           </div>
         </div>

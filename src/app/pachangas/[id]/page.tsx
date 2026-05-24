@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -9,18 +13,170 @@ import { NeoButton } from "@/components/ui/neo-button";
 import { NeoCard } from "@/components/ui/neo-card";
 import { StatBox } from "@/components/ui/stat-box";
 import { ChatMessage } from "@/components/ui/chat-message";
-import { getPachangaById } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import type { Pachanga } from "@/lib/types";
 
-interface PageProps {
-  params: { id: string };
+/* ──────────────────────────────────────────────
+   Types (match API response shape)
+   ────────────────────────────────────────────── */
+
+interface Court {
+  id: string;
+  name: string;
+  type: "INDOOR" | "OUTDOOR";
 }
 
-export default function PachangaDetailPage({ params }: PageProps) {
-  const pachanga = getPachangaById(params.id);
+interface UserBasic {
+  id: string;
+  name: string;
+  level: number;
+}
 
-  if (!pachanga) {
+interface Participation {
+  id: string;
+  userId: string;
+  status: "CONFIRMED" | "WAITLIST" | "CANCELLED";
+  position: number | null;
+  user: UserBasic & { gender: "MALE" | "FEMALE" };
+}
+
+interface ChatMsg {
+  id: string;
+  text: string;
+  userId: string;
+  user: { id: string; name: string };
+  createdAt: string;
+}
+
+interface PachangaData {
+  id: string;
+  category: "M" | "F" | "X";
+  date: string;
+  duration: number;
+  courtId: string;
+  court: Court;
+  levelMin: number;
+  levelMax: number;
+  maxPlayers: number;
+  price: string;
+  notes: string | null;
+  status: "OPEN" | "FULL" | "CANCELLED" | "FINISHED";
+  organizerId: string;
+  organizer: UserBasic;
+  participations: Participation[];
+  chatMessages: ChatMsg[];
+  createdAt: string;
+}
+
+/* ──────────────────────────────────────────────
+   Constants & helpers
+   ────────────────────────────────────────────── */
+
+const DEMO_USER_ID = "user-demo";
+
+const DAY_NAMES = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"] as const;
+
+function formatDateRange(iso: string, durationMinutes: number): string {
+  const d = new Date(iso);
+  const dayName = DAY_NAMES[d.getDay()];
+  const day = d.getDate();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const end = new Date(d.getTime() + durationMinutes * 60_000);
+  const ehh = String(end.getHours()).padStart(2, "0");
+  const emm = String(end.getMinutes()).padStart(2, "0");
+  return `${dayName} ${day} · ${hh}:${mm} — ${ehh}:${emm}`;
+}
+
+function formatPrice(decimal: string): string {
+  const n = parseFloat(decimal);
+  return Number.isInteger(n) ? `${n}€` : `${n.toFixed(2)}€`;
+}
+
+function initial(name: string): string {
+  return name.charAt(0).toUpperCase();
+}
+
+function formatChatTime(iso: string): string {
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/* ──────────────────────────────────────────────
+   Page component
+   ────────────────────────────────────────────── */
+
+export default function PachangaDetailPage() {
+  const { id } = useParams<{ id: string }>();
+
+  const [data, setData] = useState<PachangaData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchPachanga = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/pachangas/${id}`);
+      if (res.status === 404) {
+        setNotFound(true);
+        return;
+      }
+      const json: PachangaData = await res.json();
+      setData(json);
+      setNotFound(false);
+    } catch {
+      setNotFound(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchPachanga();
+  }, [fetchPachanga]);
+
+  /* ── Join handler ── */
+  const handleJoin = async () => {
+    setActionLoading(true);
+    try {
+      await fetch(`/api/pachangas/${id}/join`, { method: "POST" });
+      await fetchPachanga();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /* ── Leave handler ── */
+  const handleLeave = async () => {
+    setActionLoading(true);
+    try {
+      await fetch(`/api/pachangas/${id}/join`, { method: "DELETE" });
+      await fetchPachanga();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /* ── Loading state ── */
+  if (loading) {
+    return (
+      <>
+        <SiteHeader variant="paper" active="Pachangas" />
+        <main className="flex min-h-[60vh] items-center justify-center bg-paper">
+          <div className="flex flex-col items-center gap-3">
+            <span className="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-ink border-t-transparent" />
+            <p className="font-hand text-sm text-muted">Cargando pachanga...</p>
+          </div>
+        </main>
+        <SiteFooter />
+        <MobileTabs active="Pachangas" />
+      </>
+    );
+  }
+
+  /* ── Not found state ── */
+  if (notFound || !data) {
     return (
       <>
         <SiteHeader variant="paper" active="Pachangas" />
@@ -44,10 +200,17 @@ export default function PachangaDetailPage({ params }: PageProps) {
     );
   }
 
-  const isCompleto = pachanga.filled >= pachanga.max;
-  const plazasLibres = pachanga.max - pachanga.filled;
-  const waitlistCount = pachanga.waitlist?.length ?? 0;
-  const chatCount = pachanga.chat?.length ?? 0;
+  /* ── Derived values ── */
+  const confirmed = data.participations.filter((p) => p.status === "CONFIRMED");
+  const waitlist = data.participations.filter((p) => p.status === "WAITLIST");
+  const isCompleto = confirmed.length >= data.maxPlayers;
+  const hasJoined = data.participations.some(
+    (p) =>
+      p.userId === DEMO_USER_ID &&
+      (p.status === "CONFIRMED" || p.status === "WAITLIST"),
+  );
+  const plazasLibres = data.maxPlayers - confirmed.length;
+  const avatarLabels = confirmed.map((p) => initial(p.user.name));
 
   return (
     <>
@@ -56,10 +219,10 @@ export default function PachangaDetailPage({ params }: PageProps) {
       {/* ── Mobile top bar ── */}
       <div className="flex items-center gap-3 border-b-[1.5px] border-ink bg-paper px-4 py-3 md:hidden">
         <Link href="/pachangas" className="text-ink" aria-label="Volver">
-          <span className="text-lg font-bold">←</span>
+          <span className="text-lg font-bold">&larr;</span>
         </Link>
         <span className="text-sm font-bold text-ink">
-          Pachanga #{pachanga.id}
+          Pachanga &middot; #{data.id.slice(0, 6)}
         </span>
       </div>
 
@@ -70,7 +233,7 @@ export default function PachangaDetailPage({ params }: PageProps) {
             href="/pachangas"
             className="font-hand text-sm text-muted hover:text-ink"
           >
-            ← volver al listado
+            &larr; volver al listado
           </Link>
         </div>
 
@@ -78,23 +241,46 @@ export default function PachangaDetailPage({ params }: PageProps) {
         <div className="md:grid md:grid-cols-[1fr_320px]">
           {/* ════ Main content ════ */}
           <div className="p-4 md:p-6">
-            <MainContent pachanga={pachanga} isCompleto={isCompleto} />
+            <MainContent
+              data={data}
+              confirmed={confirmed}
+              isCompleto={isCompleto}
+              hasJoined={hasJoined}
+              plazasLibres={plazasLibres}
+              avatarLabels={avatarLabels}
+              waitlist={waitlist}
+              actionLoading={actionLoading}
+              onJoin={handleJoin}
+              onLeave={handleLeave}
+            />
           </div>
 
           {/* ════ Sidebar (desktop) ════ */}
           <aside className="hidden border-l-[1.5px] border-ink md:block">
-            <Sidebar pachanga={pachanga} />
+            <Sidebar
+              data={data}
+              waitlist={waitlist}
+              isCompleto={isCompleto}
+            />
           </aside>
         </div>
 
         {/* ── Mobile chat section ── */}
         <div className="border-t-[1.5px] border-ink p-4 md:hidden">
-          <ChatSection pachanga={pachanga} />
+          <ChatSection chatMessages={data.chatMessages} />
         </div>
 
         {/* ── Mobile sticky CTA ── */}
         <div className="sticky bottom-[56px] z-30 border-t-[1.5px] border-ink bg-paper px-4 py-3 md:hidden">
-          <CtaBar pachanga={pachanga} isCompleto={isCompleto} plazasLibres={plazasLibres} />
+          <CtaBar
+            isCompleto={isCompleto}
+            hasJoined={hasJoined}
+            plazasLibres={plazasLibres}
+            waitlistCount={waitlist.length}
+            actionLoading={actionLoading}
+            onJoin={handleJoin}
+            onLeave={handleLeave}
+          />
         </div>
       </main>
 
@@ -109,89 +295,116 @@ export default function PachangaDetailPage({ params }: PageProps) {
    ────────────────────────────────────────────── */
 
 function MainContent({
-  pachanga,
+  data,
+  confirmed,
   isCompleto,
+  hasJoined,
+  plazasLibres,
+  avatarLabels,
+  waitlist,
+  actionLoading,
+  onJoin,
+  onLeave,
 }: {
-  pachanga: Pachanga;
+  data: PachangaData;
+  confirmed: Participation[];
   isCompleto: boolean;
+  hasJoined: boolean;
+  plazasLibres: number;
+  avatarLabels: string[];
+  waitlist: Participation[];
+  actionLoading: boolean;
+  onJoin: () => void;
+  onLeave: () => void;
 }) {
-  const plazasLibres = pachanga.max - pachanga.filled;
+  const dateDisplay = formatDateRange(data.date, data.duration);
+  const courtDisplay = `${data.court.name} · ${data.court.type.toLowerCase()}`;
+  const priceDisplay = formatPrice(data.price);
 
   return (
     <div className="space-y-5">
       {/* Top row: chip + id + organizer */}
       <div className="flex flex-wrap items-center gap-2">
-        <CatChip cat={pachanga.cat} />
+        <CatChip cat={data.category} />
         {isCompleto && (
           <span className="rounded border-[1.2px] border-ink bg-ink px-2 py-px text-[11px] font-bold uppercase tracking-widest2 text-paper">
             COMPLETO
           </span>
         )}
         <span className="text-sm font-bold text-ink">
-          Pachanga &middot; #{pachanga.id}
+          Pachanga &middot; #{data.id.slice(0, 6)}
         </span>
         <span className="ml-auto text-xs font-hand text-muted">
-          creada por {pachanga.organizer} &middot; hace 2 h
+          creada por {data.organizer.name}
         </span>
       </div>
 
       {/* Large heading: date */}
       <div>
         <h1 className="text-xl font-extrabold text-ink md:text-2xl">
-          {pachanga.date}
+          {dateDisplay}
         </h1>
-        <p className="mt-0.5 text-sm text-ink-2">{pachanga.pista}</p>
+        <p className="mt-0.5 text-sm text-ink-2">{courtDisplay}</p>
       </div>
 
       {/* Stat grid */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatBox label="Categoria">
-          {CATEGORY_LABEL[pachanga.cat]}
+          {CATEGORY_LABEL[data.category]}
         </StatBox>
         <StatBox label="Nivel">
-          <LevelBalls value={pachanga.nivel} size={12} />
+          <LevelBalls value={data.levelMin} size={12} />
+          {data.levelMin !== data.levelMax && (
+            <span className="ml-1 text-xs text-muted">
+              — <LevelBalls value={data.levelMax} size={12} />
+            </span>
+          )}
         </StatBox>
         <StatBox label="Plazas">
           <span className="flex items-center gap-2">
-            <span>{pachanga.filled}/{pachanga.max}</span>
+            <span>{confirmed.length}/{data.maxPlayers}</span>
             <AvatarRow
-              avatars={pachanga.avatars}
+              avatars={avatarLabels}
               empty={plazasLibres > 0 ? plazasLibres : 0}
               size={20}
             />
           </span>
         </StatBox>
-        <StatBox label="Precio">{pachanga.price}</StatBox>
+        <StatBox label="Precio">{priceDisplay}</StatBox>
       </div>
 
       {/* Mixed balance card */}
-      {pachanga.cat === "X" && (
-        <MixedBalanceCard pachanga={pachanga} isCompleto={isCompleto} />
+      {data.category === "X" && (
+        <MixedBalanceCard confirmed={confirmed} maxPlayers={data.maxPlayers} isCompleto={isCompleto} />
       )}
 
       {/* Organizer notes */}
-      {pachanga.notes && (
+      {data.notes && (
         <div className="rounded-md border-[1.5px] border-dashed border-muted p-4">
           <div className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
             Notas del organizador
           </div>
-          <p className="mt-1 font-hand text-sm text-ink-2">{pachanga.notes}</p>
+          <p className="mt-1 font-hand text-sm text-ink-2">{data.notes}</p>
         </div>
       )}
 
       {/* Desktop CTA row */}
       <div className="hidden items-center gap-3 md:flex">
         <CtaBar
-          pachanga={pachanga}
           isCompleto={isCompleto}
+          hasJoined={hasJoined}
           plazasLibres={plazasLibres}
+          waitlistCount={waitlist.length}
+          actionLoading={actionLoading}
+          onJoin={onJoin}
+          onLeave={onLeave}
         />
       </div>
 
       {/* Mobile waitlist (shown inline on mobile) */}
-      {pachanga.waitlist && pachanga.waitlist.length > 0 && (
+      {waitlist.length > 0 && (
         <div className="md:hidden">
-          <WaitlistSection pachanga={pachanga} isCompleto={isCompleto} />
+          <WaitlistSection waitlist={waitlist} isCompleto={isCompleto} />
         </div>
       )}
     </div>
@@ -203,20 +416,22 @@ function MainContent({
    ────────────────────────────────────────────── */
 
 function MixedBalanceCard({
-  pachanga,
+  confirmed,
+  maxPlayers,
   isCompleto,
 }: {
-  pachanga: Pachanga;
+  confirmed: Participation[];
+  maxPlayers: number;
   isCompleto: boolean;
 }) {
-  // For a 4-player mixed match: 2H + 2M
-  const hTarget = 2;
-  const mTarget = 2;
-  // Use first half of avatars as H, second half as M (mock heuristic)
-  const hFilled = Math.min(Math.ceil(pachanga.filled / 2), hTarget);
-  const mFilled = Math.min(pachanga.filled - hFilled, mTarget);
-  const hEmpty = hTarget - hFilled;
-  const mEmpty = mTarget - mFilled;
+  const hTarget = Math.ceil(maxPlayers / 2);
+  const mTarget = Math.floor(maxPlayers / 2);
+  const males = confirmed.filter((p) => p.user.gender === "MALE");
+  const females = confirmed.filter((p) => p.user.gender === "FEMALE");
+  const hFilled = males.length;
+  const mFilled = females.length;
+  const hEmpty = Math.max(hTarget - hFilled, 0);
+  const mEmpty = Math.max(mTarget - mFilled, 0);
 
   return (
     <NeoCard accent className="p-4">
@@ -228,10 +443,10 @@ function MixedBalanceCard({
         <div>
           <div className="text-xs font-bold text-ink">{hFilled}H</div>
           <div className="mt-1 flex gap-1.5">
-            {pachanga.avatars.slice(0, hFilled).map((a, i) => (
+            {males.map((p) => (
               <Avatar
-                key={`h-${i}`}
-                label={a}
+                key={p.id}
+                label={initial(p.user.name)}
                 size={28}
                 lime={isCompleto}
               />
@@ -246,10 +461,10 @@ function MixedBalanceCard({
         <div>
           <div className="text-xs font-bold text-ink">{mFilled}M</div>
           <div className="mt-1 flex gap-1.5">
-            {pachanga.avatars.slice(hFilled, hFilled + mFilled).map((a, i) => (
+            {females.map((p) => (
               <Avatar
-                key={`m-${i}`}
-                label={a}
+                key={p.id}
+                label={initial(p.user.name)}
                 size={28}
                 lime={isCompleto}
               />
@@ -269,22 +484,53 @@ function MixedBalanceCard({
    ────────────────────────────────────────────── */
 
 function CtaBar({
-  pachanga,
   isCompleto,
+  hasJoined,
   plazasLibres,
+  waitlistCount,
+  actionLoading,
+  onJoin,
+  onLeave,
 }: {
-  pachanga: Pachanga;
   isCompleto: boolean;
+  hasJoined: boolean;
   plazasLibres: number;
+  waitlistCount: number;
+  actionLoading: boolean;
+  onJoin: () => void;
+  onLeave: () => void;
 }) {
+  if (hasJoined) {
+    return (
+      <div className="flex flex-col gap-2 md:flex-row md:items-center">
+        <NeoButton
+          variant="ghost"
+          className="flex-shrink-0"
+          disabled={actionLoading}
+          onClick={onLeave}
+        >
+          {actionLoading ? "Saliendo..." : "Salir de la lista"}
+        </NeoButton>
+        <span className="font-hand text-xs text-muted">
+          Estas apuntado/a
+        </span>
+      </div>
+    );
+  }
+
   if (isCompleto) {
     return (
       <div className="flex flex-col gap-2 md:flex-row md:items-center">
-        <NeoButton variant="ghost" className="flex-shrink-0">
-          Salir de la lista
+        <NeoButton
+          variant="primary"
+          className="flex-shrink-0"
+          disabled={actionLoading}
+          onClick={onJoin}
+        >
+          {actionLoading ? "Apuntando..." : "Entrar en lista de espera"}
         </NeoButton>
         <span className="font-hand text-xs text-muted">
-          {pachanga.waitlist?.length ?? 0} en lista de espera
+          {waitlistCount} en lista de espera
         </span>
       </div>
     );
@@ -292,11 +538,15 @@ function CtaBar({
 
   return (
     <div className="flex flex-col gap-2 md:flex-row md:items-center">
-      <NeoButton variant="primary" className="flex-shrink-0">
-        Apuntarme (queda {plazasLibres} plaza{plazasLibres !== 1 ? "s" : ""})
-      </NeoButton>
-      <NeoButton variant="ghost" className="flex-shrink-0">
-        Compartir
+      <NeoButton
+        variant="primary"
+        className="flex-shrink-0"
+        disabled={actionLoading}
+        onClick={onJoin}
+      >
+        {actionLoading
+          ? "Apuntando..."
+          : `Apuntarme (queda ${plazasLibres} plaza${plazasLibres !== 1 ? "s" : ""})`}
       </NeoButton>
       <span className="font-hand text-xs text-muted">
         cancelacion hasta 12h antes
@@ -309,16 +559,19 @@ function CtaBar({
    Sidebar (desktop)
    ────────────────────────────────────────────── */
 
-function Sidebar({ pachanga }: { pachanga: Pachanga }) {
-  const isCompleto = pachanga.filled >= pachanga.max;
-
+function Sidebar({
+  data,
+  waitlist,
+  isCompleto,
+}: {
+  data: PachangaData;
+  waitlist: Participation[];
+  isCompleto: boolean;
+}) {
   return (
     <div className="flex flex-col divide-y-[1.5px] divide-ink">
-      {/* Waitlist section */}
-      <WaitlistSection pachanga={pachanga} isCompleto={isCompleto} />
-
-      {/* Chat section */}
-      <ChatSection pachanga={pachanga} />
+      <WaitlistSection waitlist={waitlist} isCompleto={isCompleto} />
+      <ChatSection chatMessages={data.chatMessages} />
     </div>
   );
 }
@@ -328,42 +581,40 @@ function Sidebar({ pachanga }: { pachanga: Pachanga }) {
    ────────────────────────────────────────────── */
 
 function WaitlistSection({
-  pachanga,
+  waitlist,
   isCompleto,
 }: {
-  pachanga: Pachanga;
+  waitlist: Participation[];
   isCompleto: boolean;
 }) {
-  const waitlistCount = pachanga.waitlist?.length ?? 0;
-
   return (
     <div
       className={cn(
         "p-4",
-        isCompleto && "border-[1.5px] border-dashed border-lime-deep rounded-lg"
+        isCompleto && "rounded-lg border-[1.5px] border-dashed border-lime-deep",
       )}
     >
       <div className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
-        LISTA DE ESPERA &middot; {waitlistCount}
+        LISTA DE ESPERA &middot; {waitlist.length}
       </div>
 
-      {waitlistCount === 0 ? (
+      {waitlist.length === 0 ? (
         <p className="mt-2 font-hand text-xs text-muted">
           Nadie en espera todavia.
         </p>
       ) : (
         <div className="mt-3 space-y-2.5">
-          {pachanga.waitlist!.map((entry) => (
-            <div key={entry.position} className="flex items-center gap-2.5">
+          {waitlist.map((entry, idx) => (
+            <div key={entry.id} className="flex items-center gap-2.5">
               <span className="w-5 text-center font-hand text-xs text-muted">
-                {entry.position}
+                {entry.position ?? idx + 1}
               </span>
-              <Avatar label={entry.initial} size={28} />
-              <div className="flex-1 min-w-0">
+              <Avatar label={initial(entry.user.name)} size={28} />
+              <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-bold text-ink">
-                  {entry.name}
+                  {entry.user.name}
                 </div>
-                <LevelBalls value={entry.nivel} size={8} />
+                <LevelBalls value={entry.user.level} size={8} />
               </div>
             </div>
           ))}
@@ -377,28 +628,26 @@ function WaitlistSection({
    Chat section
    ────────────────────────────────────────────── */
 
-function ChatSection({ pachanga }: { pachanga: Pachanga }) {
-  const chatCount = pachanga.chat?.length ?? 0;
-
+function ChatSection({ chatMessages }: { chatMessages: ChatMsg[] }) {
   return (
     <div className="p-4">
       <div className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
-        CHAT &middot; {chatCount}
+        CHAT &middot; {chatMessages.length}
       </div>
 
-      {chatCount === 0 ? (
+      {chatMessages.length === 0 ? (
         <p className="mt-2 font-hand text-xs text-muted">
           Aun no hay mensajes.
         </p>
       ) : (
         <div className="mt-3 space-y-3">
-          {pachanga.chat!.map((msg, i) => (
+          {chatMessages.map((msg) => (
             <ChatMessage
-              key={i}
-              who={msg.who}
+              key={msg.id}
+              who={msg.user.name}
               text={msg.text}
-              time={msg.time}
-              mine={msg.mine}
+              time={formatChatTime(msg.createdAt)}
+              mine={msg.userId === DEMO_USER_ID}
             />
           ))}
         </div>
