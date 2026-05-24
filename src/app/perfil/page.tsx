@@ -1,40 +1,146 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { MobileTabs } from "@/components/layout/mobile-tabs";
-import { Avatar } from "@/components/ui/avatar";
 import { LevelBalls } from "@/components/ui/level-balls";
 import { PachangaCard } from "@/components/ui/pachanga-card";
 import { PageTabs } from "@/components/ui/page-tabs";
 import { StatBox } from "@/components/ui/stat-box";
-import { NeoLinkButton } from "@/components/ui/neo-button";
-import { CURRENT_USER, PACHANGAS } from "@/lib/mock-data";
+import { NeoButton } from "@/components/ui/neo-button";
 import { cn } from "@/lib/utils";
 
+interface ProfileUser {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  gender: "MALE" | "FEMALE";
+  level: number;
+  createdAt: string;
+}
+
+interface ProfileStats {
+  played: number;
+  created: number;
+  thisMonth: number;
+  attendance: string;
+  favCategory: string;
+}
+
+interface ApiPachanga {
+  id: string;
+  category: "M" | "F" | "X";
+  date: string;
+  duration: number;
+  court: { name: string; type: string };
+  maxPlayers: number;
+  price: string;
+  organizer: { id: string; name: string };
+  _count: { participations: number };
+}
+
+interface ProfileData {
+  user: ProfileUser;
+  stats: ProfileStats;
+  upcoming: ApiPachanga[];
+  created: ApiPachanga[];
+}
+
+function formatPachanga(p: ApiPachanga, userId: string) {
+  const d = new Date(p.date);
+  const days = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const dayLabel = isToday ? "HOY" : `${days[d.getDay()]} ${d.getDate()}`;
+  const time = d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+  return {
+    id: p.id,
+    cat: p.category,
+    date: `${dayLabel} · ${time}`,
+    time: `${time} · ${p.duration}min`,
+    pista: `${p.court.name} · ${p.court.type.toLowerCase()}`,
+    nivel: 3,
+    filled: p._count.participations,
+    max: p.maxPlayers,
+    organizer: p.organizer.id === userId ? "Tú" : p.organizer.name,
+    price: `${parseFloat(p.price)}€`,
+    accent: isToday,
+  };
+}
+
+function initials(name: string | null): string {
+  if (!name) return "?";
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
 const DESKTOP_TABS = [
-  { label: "Próximas", count: 3 },
-  { label: "Creadas", count: 8 },
-  { label: "Historial" },
+  { label: "Próximas" },
+  { label: "Creadas" },
   { label: "Estadísticas" },
 ];
 
-const MOBILE_TABS = [
-  { label: "Próx.", count: 3 },
-  { label: "Creadas", count: 8 },
-  { label: "Hist." },
-];
-
-const upcomingPachangas = [
-  { ...PACHANGAS[0], organizer: "Tú" },
-  PACHANGAS[1],
-  PACHANGAS[2],
+const MOBILE_TABS_LIST = [
+  { label: "Próx." },
+  { label: "Creadas" },
+  { label: "Stats" },
 ];
 
 export default function PerfilPage() {
+  const { data: session, status: authStatus } = useSession();
+  const [data, setData] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
-  const user = CURRENT_USER;
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") {
+      setLoading(false);
+      return;
+    }
+    fetch("/api/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [authStatus]);
+
+  if (authStatus === "loading" || loading) {
+    return (
+      <>
+        <SiteHeader variant="paper" />
+        <main className="flex min-h-[60vh] items-center justify-center bg-paper">
+          <p className="font-hand text-muted">Cargando perfil...</p>
+        </main>
+        <SiteFooter />
+        <MobileTabs active="Yo" />
+      </>
+    );
+  }
+
+  if (authStatus !== "authenticated" || !data) {
+    return (
+      <>
+        <SiteHeader variant="paper" />
+        <main className="flex min-h-[60vh] items-center justify-center bg-paper">
+          <div className="text-center">
+            <p className="text-lg font-bold text-ink">Inicia sesión</p>
+            <p className="mt-1 text-sm text-muted">Para ver tu perfil necesitas una cuenta.</p>
+            <Link href="/login" className="mt-3 inline-block text-sm font-bold text-lime-deep">
+              Entrar →
+            </Link>
+          </div>
+        </main>
+        <SiteFooter />
+        <MobileTabs active="Yo" />
+      </>
+    );
+  }
+
+  const { user, stats, upcoming, created } = data;
+  const memberYear = new Date(user.createdAt).getFullYear();
 
   return (
     <>
@@ -42,35 +148,39 @@ export default function PerfilPage() {
 
       {/* ── Mobile header ── */}
       <section className="relative bg-navy px-4 pb-6 pt-8 text-center md:hidden">
-        <button
-          type="button"
-          className="absolute right-4 top-4 font-hand text-lg text-lime"
-          aria-label="Ajustes"
-        >
-          ⚙
-        </button>
-
         <div className="flex justify-center">
-          <Avatar label={user.initial} size={64} lime />
+          {user.image ? (
+            <img src={user.image} alt="" className="h-16 w-16 rounded-full border-2 border-lime" />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-lime bg-lime text-lg font-bold text-ink">
+              {initials(user.name)}
+            </div>
+          )}
         </div>
         <h1 className="mt-3 text-lg font-extrabold text-foam">
-          {user.name}
+          {user.name || "Sin nombre"}
         </h1>
         <p className="mt-0.5 text-xs text-foam/70">
-          socio desde {user.memberSince}
+          socio desde {memberYear}
         </p>
         <div className="mt-3 flex items-center justify-center gap-1.5">
           <span className="text-xs font-medium text-foam/80">Nivel</span>
           <LevelBalls value={user.level} size={9} />
         </div>
+        <button
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="mt-3 text-xs text-foam/50 underline"
+        >
+          Cerrar sesión
+        </button>
       </section>
 
       {/* ── Mobile stat row ── */}
       <div className="grid grid-cols-3 border-b border-dashed border-muted/70 bg-paper md:hidden">
         {[
-          { value: user.stats.played, label: "jugados" },
-          { value: user.stats.created, label: "creadas" },
-          { value: user.stats.attendance, label: "asist." },
+          { value: stats.played, label: "jugados" },
+          { value: stats.created, label: "creadas" },
+          { value: stats.attendance, label: "asist." },
         ].map((s) => (
           <div
             key={s.label}
@@ -88,15 +198,21 @@ export default function PerfilPage() {
       <section className="hidden border-b border-dashed border-muted/70 bg-paper md:block">
         <div className="container py-8">
           <div className="flex items-start gap-6">
-            <Avatar label={user.initial} size={86} lime />
+            {user.image ? (
+              <img src={user.image} alt="" className="h-20 w-20 rounded-full border-2 border-lime" />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-lime bg-lime text-2xl font-bold text-ink">
+                {initials(user.name)}
+              </div>
+            )}
 
             <div className="flex-1">
               <h1 className="text-2xl font-extrabold text-ink">
-                {user.name}
+                {user.name || "Sin nombre"}
               </h1>
               <p className="mt-0.5 text-sm text-ink-2">{user.email}</p>
               <p className="mt-0.5 text-xs text-muted">
-                socio desde {user.memberSince}
+                socio desde {memberYear}
               </p>
 
               <div className="mt-3 flex flex-wrap items-center gap-4">
@@ -104,17 +220,17 @@ export default function PerfilPage() {
                   Nivel <LevelBalls value={user.level} size={10} />
                 </span>
                 <span className="text-xs text-ink-2">
-                  {user.gender === "H" ? "Hombre" : "Mujer"}
+                  {user.gender === "MALE" ? "Hombre" : "Mujer"}
                 </span>
                 <span className="font-hand text-sm text-lime-deep">
-                  {user.stats.played} partidos jugados
+                  {stats.played} partidos jugados
                 </span>
               </div>
             </div>
 
-            <NeoLinkButton href="/perfil/editar" variant="ghost" size="sm">
-              Editar perfil
-            </NeoLinkButton>
+            <NeoButton variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: "/" })}>
+              Cerrar sesión
+            </NeoButton>
           </div>
         </div>
       </section>
@@ -122,7 +238,7 @@ export default function PerfilPage() {
       <main className="min-h-screen">
         {/* ── Tabs ── */}
         <div className="md:hidden">
-          <PageTabs tabs={MOBILE_TABS} active={activeTab} onChange={setActiveTab} />
+          <PageTabs tabs={MOBILE_TABS_LIST} active={activeTab} onChange={setActiveTab} />
         </div>
         <div className="hidden md:block">
           <div className="container">
@@ -133,48 +249,30 @@ export default function PerfilPage() {
         {/* ── Tab content ── */}
         <div className="bg-paper-alt p-4 md:p-6">
           <div className="container">
-            {/* Section label */}
-            <p className="mb-4 text-[10px] font-bold uppercase tracking-widest2 text-muted">
-              Esta semana
-            </p>
-
-            {/* Pachanga cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {upcomingPachangas.map((p) => (
-                <PachangaCard
-                  key={p.id}
-                  cat={p.cat}
-                  date={p.date}
-                  time={p.time}
-                  pista={p.pista}
-                  nivel={p.nivel}
-                  filled={p.filled}
-                  max={p.max}
-                  organizer={p.organizer}
-                  price={p.price}
-                  accent={p.accent}
-                  avatars={p.avatars}
-                  href={`/pachangas/${p.id}`}
-                  compact={activeTab === 0 && true}
-                />
-              ))}
-            </div>
-
-            {/* Stats grid */}
-            <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <StatBox label="Partidos jugados">
-                {user.stats.played}
-              </StatBox>
-              <StatBox label="Este mes">
-                {user.stats.thisMonth}
-              </StatBox>
-              <StatBox label="Asistencia">
-                {user.stats.attendance}
-              </StatBox>
-              <StatBox label="Categ. favorita">
-                {user.stats.favCategory}
-              </StatBox>
-            </div>
+            {activeTab === 0 && (
+              <PachangaList
+                pachangas={upcoming}
+                userId={user.id}
+                emptyText="No tienes pachangas próximas"
+              />
+            )}
+            {activeTab === 1 && (
+              <PachangaList
+                pachangas={created}
+                userId={user.id}
+                emptyText="No has creado ninguna pachanga"
+              />
+            )}
+            {activeTab === 2 && (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <StatBox label="Partidos jugados">{stats.played}</StatBox>
+                <StatBox label="Este mes">{stats.thisMonth}</StatBox>
+                <StatBox label="Asistencia">{stats.attendance}</StatBox>
+                <StatBox label="Categ. favorita">{stats.favCategory}</StatBox>
+                <StatBox label="Pachangas creadas">{stats.created}</StatBox>
+                <StatBox label="Nivel">{user.level}</StatBox>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -182,5 +280,50 @@ export default function PerfilPage() {
       <SiteFooter />
       <MobileTabs active="Yo" />
     </>
+  );
+}
+
+function PachangaList({
+  pachangas,
+  userId,
+  emptyText,
+}: {
+  pachangas: ApiPachanga[];
+  userId: string;
+  emptyText: string;
+}) {
+  if (pachangas.length === 0) {
+    return (
+      <div className="py-12 text-center">
+        <p className="text-sm text-muted">{emptyText}</p>
+        <Link href="/pachangas/nueva" className="mt-2 inline-block text-sm font-bold text-lime-deep">
+          Crear pachanga →
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {pachangas.map((p) => {
+        const f = formatPachanga(p, userId);
+        return (
+          <PachangaCard
+            key={f.id}
+            cat={f.cat}
+            date={f.date}
+            time={f.time}
+            pista={f.pista}
+            nivel={f.nivel}
+            filled={f.filled}
+            max={f.max}
+            organizer={f.organizer}
+            price={f.price}
+            accent={f.accent}
+            href={`/pachangas/${f.id}`}
+          />
+        );
+      })}
+    </div>
   );
 }
