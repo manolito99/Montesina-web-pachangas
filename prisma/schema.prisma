@@ -23,6 +23,7 @@ model User {
   createdPachangas Pachanga[]     @relation("organizer")
   participations   Participation[]
   chatMessages     ChatMessage[]
+  createdCourts    Court[]        @relation("courtCreator")
 
   @@map("users")
 }
@@ -98,9 +99,15 @@ enum ParticipationStatus {
 // ─── Courts ──────────────────────────────────────────────
 
 model Court {
-  id   String    @id @default(cuid())
-  name String
-  type CourtType
+  id        String    @id @default(cuid())
+  name      String
+  type      CourtType
+  location  String?
+  address   String?
+  isClub    Boolean   @default(false) @map("is_club")
+  createdBy String?   @map("created_by")
+  creator   User?     @relation("courtCreator", fields: [createdBy], references: [id])
+  createdAt DateTime  @default(now()) @map("created_at")
   pachangas Pachanga[]
 
   @@map("courts")

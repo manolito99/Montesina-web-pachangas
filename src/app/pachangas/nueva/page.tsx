@@ -15,6 +15,9 @@ interface CourtFromApi {
   id: string;
   name: string;
   type: "INDOOR" | "OUTDOOR";
+  location: string | null;
+  address: string | null;
+  isClub: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -287,6 +290,52 @@ function Step2({
 }
 
 /* ------------------------------------------------------------------ */
+/*  Court row                                                          */
+/* ------------------------------------------------------------------ */
+
+function CourtRow({
+  court,
+  selected,
+  onSelect,
+}: {
+  court: CourtFromApi;
+  selected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(court.id)}
+      className={cn(
+        "flex items-center gap-3 rounded-lg border-[1.5px] p-3 text-left transition-all",
+        selected
+          ? "border-[2px] border-lime-deep bg-lime-soft shadow-neo-lime"
+          : "border-ink bg-fill hover:bg-paper-alt",
+      )}
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border-[1.2px] border-ink bg-paper-alt text-xs font-bold text-muted">
+        {court.name.charAt(0)}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-ink truncate">{court.name}</span>
+          {court.isClub && (
+            <span className="shrink-0 rounded border-[1px] border-lime-deep bg-lime-soft px-1.5 py-px text-[9px] font-bold text-lime-deep">
+              CLUB
+            </span>
+          )}
+        </div>
+        <span className="text-xs text-muted">
+          {court.type.toLowerCase()}
+          {court.location && ` · ${court.location}`}
+        </span>
+      </div>
+      {selected && <span className="text-xs text-lime-deep">✓</span>}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Step 3 — Pista y nivel                                             */
 /* ------------------------------------------------------------------ */
 
@@ -311,58 +360,116 @@ function Step3({
   timeSlot: string | null;
   courts: CourtFromApi[];
 }) {
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState<"INDOOR" | "OUTDOOR">("OUTDOOR");
+  const [newLocation, setNewLocation] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreateCourt() {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/courts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName.trim(),
+          type: newType,
+          location: newLocation.trim() || null,
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        courts.push(created);
+        setCourt(created.id);
+        setShowNewForm(false);
+        setNewName("");
+        setNewLocation("");
+      }
+    } catch { /* ignore */ }
+    setCreating(false);
+  }
+
+  const clubCourts = courts.filter((c) => c.isClub);
+  const customCourts = courts.filter((c) => !c.isClub);
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       {/* Left — courts */}
       <div>
         <p className="mb-3 text-sm font-semibold text-ink-2">
-          Pistas disponibles{" "}
-          <span className="text-muted">
-            · {date ?? "—"} · {timeSlot ?? "—"}
-          </span>
+          Pistas del club
         </p>
         <div className="flex flex-col gap-2">
-          {courts.map((c) => {
-            const selected = court === c.id;
-            const occupied = false;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                disabled={occupied}
-                onClick={() => setCourt(c.id)}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg border-[1.5px] p-3 text-left transition-all",
-                  occupied && "opacity-50",
-                  selected
-                    ? "border-[2px] border-lime-deep bg-lime-soft shadow-neo-lime"
-                    : "border-ink bg-fill hover:bg-paper-alt",
-                )}
-              >
-                {/* placeholder court icon */}
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border-[1.2px] border-ink bg-paper-alt text-xs font-bold text-muted">
-                  {c.name.split(" ")[1]}
-                </div>
-
-                <div className="flex-1">
-                  <span className="text-sm font-bold text-ink">{c.name}</span>
-                  <span className="ml-2 text-xs text-muted">{c.type.toLowerCase()}</span>
-                </div>
-
-                {/* badge */}
-                <span
-                  className="rounded-full border-[1.2px] border-lime-deep bg-lime-soft px-2 py-0.5 text-[10px] font-bold uppercase text-lime-deep"
-                >
-                  LIBRE
-                </span>
-
-                {selected && (
-                  <span className="text-xs text-lime-deep">&#10003;</span>
-                )}
-              </button>
-            );
-          })}
+          {clubCourts.map((c) => (
+            <CourtRow key={c.id} court={c} selected={court === c.id} onSelect={setCourt} />
+          ))}
         </div>
+
+        {customCourts.length > 0 && (
+          <>
+            <p className="mb-2 mt-5 text-sm font-semibold text-ink-2">
+              Otras pistas
+            </p>
+            <div className="flex flex-col gap-2">
+              {customCourts.map((c) => (
+                <CourtRow key={c.id} court={c} selected={court === c.id} onSelect={setCourt} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {!showNewForm ? (
+          <button
+            type="button"
+            onClick={() => setShowNewForm(true)}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-muted p-3 text-sm font-semibold text-muted transition-colors hover:border-ink hover:text-ink"
+          >
+            + Añadir otra pista
+          </button>
+        ) : (
+          <div className="mt-3 rounded-lg border-[1.5px] border-ink bg-fill p-4 space-y-3">
+            <p className="text-sm font-bold text-ink">Nueva pista</p>
+            <input
+              type="text"
+              placeholder="Nombre de la pista"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-full rounded-md border-[1.5px] border-ink bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus:ring-2 focus:ring-lime"
+            />
+            <div className="flex gap-2">
+              {(["OUTDOOR", "INDOOR"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setNewType(t)}
+                  className={cn(
+                    "flex-1 rounded-full border-[1.5px] py-1.5 text-xs font-semibold",
+                    newType === t ? "border-lime-deep bg-lime text-ink" : "border-ink bg-fill text-ink",
+                  )}
+                >
+                  {t === "OUTDOOR" ? "Outdoor" : "Indoor"}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              placeholder="Ubicación (opcional)"
+              value={newLocation}
+              onChange={(e) => setNewLocation(e.target.value)}
+              className="w-full rounded-md border-[1.5px] border-ink bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus:ring-2 focus:ring-lime"
+            />
+            <div className="flex gap-2">
+              <NeoButton size="sm" onClick={handleCreateCourt} disabled={!newName.trim() || creating}>
+                {creating ? "Creando..." : "Crear pista"}
+              </NeoButton>
+              <NeoButton size="sm" variant="ghost" onClick={() => setShowNewForm(false)}>
+                Cancelar
+              </NeoButton>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right — level range */}

@@ -3,31 +3,26 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  // Courts
-  const courts = await Promise.all([
-    prisma.court.upsert({
-      where: { id: "court-1" },
-      update: {},
-      create: { id: "court-1", name: "Pista 1", type: "OUTDOOR" },
-    }),
-    prisma.court.upsert({
-      where: { id: "court-2" },
-      update: {},
-      create: { id: "court-2", name: "Pista 2", type: "INDOOR" },
-    }),
-    prisma.court.upsert({
-      where: { id: "court-3" },
-      update: {},
-      create: { id: "court-3", name: "Pista 3", type: "INDOOR" },
-    }),
-    prisma.court.upsert({
-      where: { id: "court-4" },
-      update: {},
-      create: { id: "court-4", name: "Pista 4", type: "OUTDOOR" },
-    }),
-  ]);
+  // ─── Club courts (las 3 pistas oficiales de Montesiña) ───
+  const montesina = await prisma.court.upsert({
+    where: { id: "court-montesina" },
+    update: { name: "Montesiña", type: "OUTDOOR", location: "Club Montesiña", address: "Montesiña, Pontevedra", isClub: true },
+    create: { id: "court-montesina", name: "Montesiña", type: "OUTDOOR", location: "Club Montesiña", address: "Montesiña, Pontevedra", isClub: true },
+  });
 
-  // Demo user
+  const lebron = await prisma.court.upsert({
+    where: { id: "court-lebron" },
+    update: { name: "Lebrón", type: "INDOOR", location: "Club Montesiña", address: "Montesiña, Pontevedra", isClub: true },
+    create: { id: "court-lebron", name: "Lebrón", type: "INDOOR", location: "Club Montesiña", address: "Montesiña, Pontevedra", isClub: true },
+  });
+
+  const pavillon = await prisma.court.upsert({
+    where: { id: "court-pavillon" },
+    update: { name: "Pabellón", type: "INDOOR", location: "Club Montesiña", address: "Montesiña, Pontevedra", isClub: true },
+    create: { id: "court-pavillon", name: "Pabellón", type: "INDOOR", location: "Club Montesiña", address: "Montesiña, Pontevedra", isClub: true },
+  });
+
+  // ─── Demo users ───
   const demo = await prisma.user.upsert({
     where: { email: "javi@correo.com" },
     update: {},
@@ -41,7 +36,6 @@ async function main() {
     },
   });
 
-  // Extra users for pachangas
   const marta = await prisma.user.upsert({
     where: { email: "marta@correo.com" },
     update: {},
@@ -81,7 +75,7 @@ async function main() {
     },
   });
 
-  // Sample pachangas
+  // ─── Sample pachangas ───
   const today = new Date();
   today.setHours(19, 0, 0, 0);
 
@@ -97,7 +91,7 @@ async function main() {
       category: "X",
       date: today,
       duration: 90,
-      courtId: "court-1",
+      courtId: montesina.id,
       levelMin: 2,
       levelMax: 4,
       maxPlayers: 4,
@@ -132,7 +126,7 @@ async function main() {
       category: "M",
       date: tomorrow,
       duration: 90,
-      courtId: "court-3",
+      courtId: lebron.id,
       levelMin: 3,
       levelMax: 5,
       maxPlayers: 4,
@@ -154,7 +148,7 @@ async function main() {
   });
 
   console.log("Seed completed:");
-  console.log(`  ${courts.length} courts`);
+  console.log(`  3 club courts: ${montesina.name}, ${lebron.name}, ${pavillon.name}`);
   console.log(`  4 users (demo: javi@correo.com)`);
   console.log(`  2 pachangas with participations`);
 }
