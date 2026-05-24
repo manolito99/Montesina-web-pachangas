@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendPushToAll } from "@/lib/services/push";
 
-const DEMO_USER_ID = "user-demo";
+async function getUserId(): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+  return (session?.user as { id?: string })?.id ?? null;
+}
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
     const pachanga = await db.pachanga.findUnique({
       where: { id: params.id },
       include: { _count: { select: { participations: { where: { status: "CONFIRMED" } } } } },
@@ -19,7 +29,7 @@ export async function POST(
     }
 
     const existing = await db.participation.findUnique({
-      where: { userId_pachangaId: { userId: DEMO_USER_ID, pachangaId: params.id } },
+      where: { userId_pachangaId: { userId, pachangaId: params.id } },
     });
 
     if (existing) {
@@ -31,7 +41,7 @@ export async function POST(
 
     const participation = await db.participation.create({
       data: {
-        userId: DEMO_USER_ID,
+        userId,
         pachangaId: params.id,
         status: isFull ? "WAITLIST" : "CONFIRMED",
         position: isFull ? confirmedCount + 1 : null,
@@ -46,7 +56,7 @@ export async function POST(
     }
 
     // Notify: someone joined
-    const user = await db.user.findUnique({ where: { id: DEMO_USER_ID }, select: { name: true } });
+    const user = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
     const pachangaFull = await db.pachanga.findUnique({
       where: { id: params.id },
       include: { court: true },
@@ -72,8 +82,13 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
     const existing = await db.participation.findUnique({
-      where: { userId_pachangaId: { userId: DEMO_USER_ID, pachangaId: params.id } },
+      where: { userId_pachangaId: { userId, pachangaId: params.id } },
     });
 
     if (!existing) {

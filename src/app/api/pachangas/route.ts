@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendPushFiltered } from "@/lib/services/push";
 
-const DEMO_USER_ID = "user-demo";
+async function getUserId(): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+  return (session?.user as { id?: string })?.id ?? null;
+}
 
 export async function GET() {
   const pachangas = await db.pachanga.findMany({
@@ -24,6 +29,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       category,
@@ -56,10 +66,10 @@ export async function POST(req: NextRequest) {
         price,
         notes: notes || null,
         status: "OPEN",
-        organizerId: DEMO_USER_ID,
+        organizerId: userId,
         participations: {
           create: {
-            userId: DEMO_USER_ID,
+            userId,
             status: "CONFIRMED",
           },
         },
@@ -70,7 +80,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Send push notification to all subscribers
+    // Send push notification filtered by preferences
     const catName = { M: "Masculino", F: "Femenino", X: "Mixto" }[category] || category;
     const d = new Date(date);
     const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -88,7 +98,7 @@ export async function POST(req: NextRequest) {
         levelMin,
         levelMax,
         courtId,
-        excludeUserId: DEMO_USER_ID,
+        excludeUserId: userId,
       },
     ).catch(() => {});
 

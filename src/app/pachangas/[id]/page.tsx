@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -71,7 +72,7 @@ interface PachangaData {
    Constants & helpers
    ────────────────────────────────────────────── */
 
-const DEMO_USER_ID = "user-demo";
+// userId comes from session, passed into components
 
 const DAY_NAMES = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"] as const;
 
@@ -136,6 +137,8 @@ function buildWhatsAppUrl(data: PachangaData, plazasLibres: number): string {
 
 export default function PachangaDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { data: session } = useSession();
+  const currentUserId = (session?.user as { id?: string })?.id ?? null;
 
   const [data, setData] = useState<PachangaData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -233,7 +236,7 @@ export default function PachangaDetailPage() {
   const isCompleto = confirmed.length >= data.maxPlayers;
   const hasJoined = data.participations.some(
     (p) =>
-      p.userId === DEMO_USER_ID &&
+      p.userId === currentUserId &&
       (p.status === "CONFIRMED" || p.status === "WAITLIST"),
   );
   const plazasLibres = data.maxPlayers - confirmed.length;
@@ -294,7 +297,7 @@ export default function PachangaDetailPage() {
 
         {/* ── Mobile chat section ── */}
         <div className="border-t-[1.5px] border-ink p-4 md:hidden">
-          <ChatSection chatMessages={data.chatMessages} />
+          <ChatSection chatMessages={data.chatMessages} currentUserId={currentUserId} />
         </div>
 
         {/* ── Mobile sticky CTA ── */}
@@ -672,7 +675,7 @@ function Sidebar({
   return (
     <div className="flex flex-col divide-y-[1.5px] divide-ink">
       <WaitlistSection waitlist={waitlist} isCompleto={isCompleto} />
-      <ChatSection chatMessages={data.chatMessages} />
+      <ChatSection chatMessages={data.chatMessages} currentUserId={currentUserId} />
     </div>
   );
 }
@@ -729,7 +732,7 @@ function WaitlistSection({
    Chat section
    ────────────────────────────────────────────── */
 
-function ChatSection({ chatMessages }: { chatMessages: ChatMsg[] }) {
+function ChatSection({ chatMessages, currentUserId }: { chatMessages: ChatMsg[]; currentUserId: string | null }) {
   return (
     <div className="p-4">
       <div className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
@@ -748,7 +751,7 @@ function ChatSection({ chatMessages }: { chatMessages: ChatMsg[] }) {
               who={msg.user.name}
               text={msg.text}
               time={formatChatTime(msg.createdAt)}
-              mine={msg.userId === DEMO_USER_ID}
+              mine={msg.userId === currentUserId}
             />
           ))}
         </div>

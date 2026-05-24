@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-const DEMO_USER_ID = "user-demo";
+async function getUserId(): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+  return (session?.user as { id?: string })?.id ?? null;
+}
 
 export async function GET() {
   const courts = await db.court.findMany({
@@ -12,6 +17,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserId();
+
     const body = await req.json();
     const { name, type, location, address } = body;
 
@@ -29,7 +36,7 @@ export async function POST(req: NextRequest) {
         location: location || null,
         address: address || null,
         isClub: false,
-        createdBy: DEMO_USER_ID,
+        createdBy: userId,
       },
     });
 
