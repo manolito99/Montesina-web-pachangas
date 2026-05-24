@@ -129,9 +129,11 @@ function InstallStep({
       <div className="mt-5 rounded-lg border-[1.5px] border-dashed border-muted bg-fill p-4">
         {isIOSDevice ? (
           <div className="space-y-3">
-            <StepItem n={1} text='Pulsa el botón de compartir' icon="↑" />
-            <StepItem n={2} text='"Añadir a pantalla de inicio"' icon="＋" />
-            <StepItem n={3} text='Dale a "Añadir" y listo' icon="✓" />
+            <StepItem n={1} text='Pulsa los 3 puntos ··· abajo a la derecha en Safari' icon="···" />
+            <StepItem n={2} text='Pulsa "Compartir" (abajo a la derecha)' icon="↑" />
+            <StepItem n={3} text='Pulsa "Ver más" y busca "Añadir a pantalla de inicio"' icon="＋" />
+            <StepItem n={4} text='Pulsa "Añadir" y se instalará' icon="✓" />
+            <StepItem n={5} text='Abre la app desde el icono y activa las notificaciones' icon="🔔" />
           </div>
         ) : isAndroidDevice ? (
           hasDeferredPrompt ? (
