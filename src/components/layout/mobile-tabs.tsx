@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { label: "Inicio", icon: "⌂", href: "/" },
   { label: "Pachangas", icon: "⚉", href: "/pachangas" },
-  { label: "Pistas", icon: "▦", href: "/reservas" },
+  // { label: "Pistas", icon: "▦", href: "/reservas" }, // oculto: reservas se gestionan fuera de la app
   { label: "Yo", icon: "◉", href: "/perfil" },
 ] as const;
 
