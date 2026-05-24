@@ -75,6 +75,15 @@ export default function Home() {
         <FeaturedSection pachangas={pachangas} />
       </main>
       <SiteFooter />
+      <div className="bg-paper-alt px-6 pb-6 text-center">
+        <Link href="/privacidad" className="text-xs text-muted underline hover:text-ink">
+          Politica de Privacidad
+        </Link>
+        {" · "}
+        <Link href="/condiciones" className="text-xs text-muted underline hover:text-ink">
+          Condiciones del Servicio
+        </Link>
+      </div>
       <MobileTabs active="Inicio" />
     </>
   );
