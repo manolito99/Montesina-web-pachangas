@@ -85,7 +85,7 @@ export default function ReservasPage() {
 
   return (
     <>
-      <SiteHeader variant="paper" active="Pistas" />
+      <SiteHeader variant="paper" />
 
       <main className="min-h-screen bg-paper pb-28 md:pb-0">
         {/* ── DESKTOP VIEW ─────────────────────────────────── */}
@@ -307,7 +307,7 @@ export default function ReservasPage() {
       </main>
 
       <SiteFooter />
-      <MobileTabs active="Pistas" />
+      <MobileTabs />
     </>
   );
 }
