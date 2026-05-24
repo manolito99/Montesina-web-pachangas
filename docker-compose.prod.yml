@@ -11,11 +11,14 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT}
-    ports:
-      - "3000:3000"
+    networks:
+      - default
+      - proxy-net
     depends_on:
       db:
         condition: service_healthy
@@ -39,3 +42,7 @@ services:
 
 volumes:
   montesina-db-prod:
+
+networks:
+  proxy-net:
+    external: true
