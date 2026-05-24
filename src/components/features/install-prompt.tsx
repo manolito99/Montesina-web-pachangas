@@ -30,6 +30,7 @@ export function InstallPrompt() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (/bot|crawl|spider|slurp|googlebot/i.test(navigator.userAgent)) return;
     if (localStorage.getItem(STORAGE_KEY)) return;
     if (isStandalone()) return;
 
