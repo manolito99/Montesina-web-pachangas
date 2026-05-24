@@ -31,7 +31,7 @@ interface WizardState {
   category: Category | null;
   date: string | null;
   timeSlot: string | null;
-  duration: 60 | 90 | 120;
+  duration: 60 | 90;
   court: string | null;
   levelMin: number;
   levelMax: number;
@@ -41,31 +41,46 @@ interface WizardState {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Mock data for the wizard                                           */
+/*  Dynamic day & time options                                         */
 /* ------------------------------------------------------------------ */
 
-const DAY_OPTIONS = [
-  { label: "MAR 20", value: "MAR 20" },
-  { label: "MIE 21", value: "MIE 21" },
-  { label: "JUE 22", value: "JUE 22" },
-  { label: "VIE 23", value: "VIE 23" },
-  { label: "SAB 24", value: "SAB 24" },
-  { label: "DOM 25", value: "DOM 25" },
-  { label: "LUN 26", value: "LUN 26" },
-];
+const DAY_NAMES = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"] as const;
 
-const TIME_OPTIONS = [
-  { label: "17:00", value: "17:00", occupied: false },
-  { label: "18:30", value: "18:30", occupied: false },
-  { label: "19:00", value: "19:00", occupied: true },
-  { label: "20:30", value: "20:30", occupied: false },
-  { label: "22:00", value: "22:00", occupied: false },
-];
+function buildDayOptions(): { label: string; value: string }[] {
+  const days: { label: string; value: string }[] = [];
+  const now = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    const dayName = i === 0 ? "HOY" : i === 1 ? "MAÑANA" : DAY_NAMES[d.getDay()];
+    const num = d.getDate();
+    const iso = d.toISOString().split("T")[0];
+    days.push({ label: `${dayName} ${num}`, value: iso });
+  }
+  return days;
+}
 
-const DURATION_OPTIONS: { label: string; value: 60 | 90 | 120 }[] = [
+function buildTimeSlots(): { label: string; value: string }[] {
+  const slots: { label: string; value: string }[] = [];
+  let h = 8;
+  let m = 30;
+  while (h < 24 || (h === 24 && m === 0)) {
+    const label = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    slots.push({ label, value: label });
+    m += 30;
+    if (m >= 60) {
+      h += 1;
+      m -= 60;
+    }
+  }
+  slots.push({ label: "00:00", value: "00:00" });
+  slots.push({ label: "00:30", value: "00:30" });
+  return slots;
+}
+
+const DURATION_OPTIONS: { label: string; value: 60 | 90 }[] = [
   { label: "60 min", value: 60 },
   { label: "90 min", value: 90 },
-  { label: "120 min", value: 120 },
 ];
 
 const CATEGORY_META: Record<
@@ -205,16 +220,19 @@ function Step2({
   setDate: (d: string) => void;
   timeSlot: string | null;
   setTimeSlot: (t: string) => void;
-  duration: 60 | 90 | 120;
-  setDuration: (d: 60 | 90 | 120) => void;
+  duration: 60 | 90;
+  setDuration: (d: 60 | 90) => void;
 }) {
+  const dayOptions = buildDayOptions();
+  const timeSlots = buildTimeSlots();
+
   return (
     <div className="space-y-6">
       {/* Day pills */}
       <div>
-        <p className="mb-2 text-sm font-semibold text-ink-2">Elige dia</p>
+        <p className="mb-2 text-sm font-semibold text-ink-2">Elige día</p>
         <div className="flex flex-wrap gap-2">
-          {DAY_OPTIONS.map((d) => (
+          {dayOptions.map((d) => (
             <button
               key={d.value}
               type="button"
@@ -237,28 +255,20 @@ function Step2({
         <p className="mb-2 text-sm font-semibold text-ink-2">
           Franja horaria
         </p>
-        <div className="flex flex-wrap gap-2">
-          {TIME_OPTIONS.map((t) => (
+        <div className="grid grid-cols-4 gap-2 md:grid-cols-6">
+          {timeSlots.map((t) => (
             <button
               key={t.value}
               type="button"
-              disabled={t.occupied}
               onClick={() => setTimeSlot(t.value)}
               className={cn(
-                "rounded-full border-[1.5px] px-3 py-1.5 text-xs font-semibold transition-all",
-                t.occupied
-                  ? "border-ink bg-fill-alt text-muted line-through opacity-60"
-                  : timeSlot === t.value
-                    ? "border-lime-deep bg-lime text-ink"
-                    : "border-ink bg-fill text-ink hover:bg-paper-alt",
+                "rounded-full border-[1.5px] px-2 py-1.5 text-xs font-semibold transition-all",
+                timeSlot === t.value
+                  ? "border-lime-deep bg-lime text-ink"
+                  : "border-ink bg-fill text-ink hover:bg-paper-alt",
               )}
             >
               {t.label}
-              {t.occupied && (
-                <span className="ml-1 text-[10px] font-normal no-underline">
-                  ocupada
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -266,7 +276,7 @@ function Step2({
 
       {/* Duration pills */}
       <div>
-        <p className="mb-2 text-sm font-semibold text-ink-2">Duracion:</p>
+        <p className="mb-2 text-sm font-semibold text-ink-2">Duración:</p>
         <div className="flex flex-wrap gap-2">
           {DURATION_OPTIONS.map((d) => (
             <button
@@ -748,14 +758,9 @@ export default function NuevaPachangaPage() {
     setPublishing(true);
     setError("");
 
-    const selectedDay = DAY_OPTIONS.find((d) => d.value === state.date);
-    const dayLabel = selectedDay?.label ?? "HOY";
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const dayNum = parseInt(dayLabel.split(" ")[1]) || now.getDate();
     const [hours, minutes] = (state.timeSlot ?? "19:00").split(":").map(Number);
-    const pachangaDate = new Date(year, month, dayNum, hours, minutes);
+    const pachangaDate = new Date(state.date + "T00:00:00");
+    pachangaDate.setHours(hours, minutes, 0, 0);
 
     try {
       const res = await fetch("/api/pachangas", {
