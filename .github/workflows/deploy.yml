@@ -23,7 +23,7 @@ jobs:
             docker compose -f docker-compose.prod.yml build
             docker compose -f docker-compose.prod.yml up -d db
             sleep 5
-            docker compose -f docker-compose.prod.yml run --rm -T web npx prisma migrate deploy
+            docker compose -f docker-compose.prod.yml run --rm -T migrate
             docker compose -f docker-compose.prod.yml up -d
             sleep 5
             docker compose -f /home/ubuntu/proxy/docker-compose.yml exec -T proxy nginx -s reload
