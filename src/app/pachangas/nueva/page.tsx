@@ -31,7 +31,7 @@ interface WizardState {
   category: Category | null;
   date: string | null;
   timeSlot: string | null;
-  duration: 60 | 90;
+  duration: number;
   court: string | null;
   levelMin: number;
   levelMax: number;
@@ -60,28 +60,28 @@ function buildDayOptions(): { label: string; value: string }[] {
   return days;
 }
 
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function addMinutes(h: number, m: number, mins: number): [number, number] {
+  const total = h * 60 + m + mins;
+  return [Math.floor(total / 60) % 24, total % 60];
+}
+
 function buildTimeSlots(): { label: string; value: string }[] {
   const slots: { label: string; value: string }[] = [];
   let h = 8;
-  let m = 30;
-  while (h < 24 || (h === 24 && m === 0)) {
-    const label = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-    slots.push({ label, value: label });
-    m += 30;
-    if (m >= 60) {
-      h += 1;
-      m -= 60;
-    }
+  let m = 0;
+  while (h < 23 || (h === 23 && m === 0)) {
+    const [eh, em] = addMinutes(h, m, 90);
+    const label = `${pad(h)}:${pad(m)} — ${pad(eh)}:${pad(em)}`;
+    const value = `${pad(h)}:${pad(m)}`;
+    slots.push({ label, value });
+    [h, m] = addMinutes(h, m, 90);
   }
-  slots.push({ label: "00:00", value: "00:00" });
-  slots.push({ label: "00:30", value: "00:30" });
   return slots;
 }
-
-const DURATION_OPTIONS: { label: string; value: 60 | 90 }[] = [
-  { label: "60 min", value: 60 },
-  { label: "90 min", value: 90 },
-];
 
 const CATEGORY_META: Record<
   Category,
@@ -213,15 +213,11 @@ function Step2({
   setDate,
   timeSlot,
   setTimeSlot,
-  duration,
-  setDuration,
 }: {
   date: string | null;
   setDate: (d: string) => void;
   timeSlot: string | null;
   setTimeSlot: (t: string) => void;
-  duration: 60 | 90;
-  setDuration: (d: 60 | 90) => void;
 }) {
   const dayOptions = buildDayOptions();
   const timeSlots = buildTimeSlots();
@@ -274,27 +270,10 @@ function Step2({
         </div>
       </div>
 
-      {/* Duration pills */}
-      <div>
-        <p className="mb-2 text-sm font-semibold text-ink-2">Duración:</p>
-        <div className="flex flex-wrap gap-2">
-          {DURATION_OPTIONS.map((d) => (
-            <button
-              key={d.value}
-              type="button"
-              onClick={() => setDuration(d.value)}
-              className={cn(
-                "rounded-full border-[1.5px] px-3 py-1.5 text-xs font-semibold transition-all",
-                duration === d.value
-                  ? "border-lime-deep bg-lime text-ink"
-                  : "border-ink bg-fill text-ink hover:bg-paper-alt",
-              )}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Duration info */}
+      <p className="text-xs text-muted">
+        Cada tramo dura 1h 30min (90 minutos).
+      </p>
     </div>
   );
 }
@@ -827,8 +806,6 @@ export default function NuevaPachangaPage() {
               setDate={(d) => patch({ date: d })}
               timeSlot={state.timeSlot}
               setTimeSlot={(t) => patch({ timeSlot: t })}
-              duration={state.duration}
-              setDuration={(d) => patch({ duration: d })}
             />
           )}
           {state.step === 3 && (
