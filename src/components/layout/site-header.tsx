@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
 import FlatLogo from "@/assets/logo-montesina-flat.svg";
+import { UserMenu, UserMenuNavy } from "@/components/layout/user-menu";
 import { cn } from "@/lib/utils";
 
 export type HeaderVariant = "paper" | "navy-fade";
@@ -40,12 +41,7 @@ function PaperHeader({ active }: { active?: SiteHeaderProps["active"] }) {
           >
             🔔
           </Link>
-          <Link
-            href="/login"
-            className="inline-flex h-8 items-center rounded-full border-[1.5px] border-ink bg-lime px-3 text-xs font-bold text-ink shadow-neo-sm transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-none"
-          >
-            Entrar
-          </Link>
+          <UserMenu />
         </div>
       </div>
     </header>
@@ -108,12 +104,7 @@ function NavyFadeHeader({ active }: { active?: SiteHeaderProps["active"] }) {
           >
             🔔
           </Link>
-          <Link
-            href="/login"
-            className="inline-flex h-8 items-center rounded-full border-[1.5px] border-lime px-3 text-xs font-bold text-lime transition-colors hover:bg-lime hover:text-navy"
-          >
-            Entrar
-          </Link>
+          <UserMenuNavy />
         </div>
       </div>
     </header>

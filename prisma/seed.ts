@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+const DEMO_PASSWORD = bcrypt.hashSync("demo123", 12);
 
 async function main() {
   // ─── Club courts (las 3 pistas oficiales de Montesiña) ───
@@ -30,7 +32,7 @@ async function main() {
       id: "user-demo",
       name: "Javi González",
       email: "javi@correo.com",
-      password: "$demo$",
+      password: DEMO_PASSWORD,
       gender: "MALE",
       level: 3,
     },
@@ -43,7 +45,7 @@ async function main() {
       id: "user-marta",
       name: "Marta López",
       email: "marta@correo.com",
-      password: "$demo$",
+      password: DEMO_PASSWORD,
       gender: "FEMALE",
       level: 3,
     },
@@ -56,7 +58,7 @@ async function main() {
       id: "user-carlos",
       name: "Carlos Ruiz",
       email: "carlos@correo.com",
-      password: "$demo$",
+      password: DEMO_PASSWORD,
       gender: "MALE",
       level: 4,
     },
@@ -69,7 +71,7 @@ async function main() {
       id: "user-lucia",
       name: "Lucía Vega",
       email: "lucia@correo.com",
-      password: "$demo$",
+      password: DEMO_PASSWORD,
       gender: "FEMALE",
       level: 2,
     },
