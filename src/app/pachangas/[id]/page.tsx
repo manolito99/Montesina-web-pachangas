@@ -291,6 +291,7 @@ export default function PachangaDetailPage() {
               data={data}
               waitlist={waitlist}
               isCompleto={isCompleto}
+              currentUserId={currentUserId}
             />
           </aside>
         </div>
@@ -667,10 +668,12 @@ function Sidebar({
   data,
   waitlist,
   isCompleto,
+  currentUserId,
 }: {
   data: PachangaData;
   waitlist: Participation[];
   isCompleto: boolean;
+  currentUserId: string | null;
 }) {
   return (
     <div className="flex flex-col divide-y-[1.5px] divide-ink">
