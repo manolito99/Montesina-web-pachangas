@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import {
   saveSubscription,
   removeSubscription,
   getSubscriptionCount,
 } from "@/lib/services/push";
+
+async function getUserId(): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+  return (session?.user as { id?: string })?.id ?? null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,20 +28,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    saveSubscription({
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-      },
-      createdAt: Date.now(),
-    });
+    const userId = await getUserId();
 
-    return NextResponse.json({
-      success: true,
-      total: getSubscriptionCount(),
-    });
-  } catch {
+    await saveSubscription(
+      subscription.endpoint,
+      subscription.keys.p256dh,
+      subscription.keys.auth,
+      userId,
+    );
+
+    const total = await getSubscriptionCount();
+    return NextResponse.json({ success: true, total });
+  } catch (err) {
+    console.error("[push/subscribe] POST error:", err);
     return NextResponse.json(
       { error: "Failed to save subscription" },
       { status: 500 },
@@ -54,13 +60,11 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    removeSubscription(endpoint);
-
-    return NextResponse.json({
-      success: true,
-      total: getSubscriptionCount(),
-    });
-  } catch {
+    await removeSubscription(endpoint);
+    const total = await getSubscriptionCount();
+    return NextResponse.json({ success: true, total });
+  } catch (err) {
+    console.error("[push/subscribe] DELETE error:", err);
     return NextResponse.json(
       { error: "Failed to remove subscription" },
       { status: 500 },

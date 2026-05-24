@@ -68,6 +68,7 @@ model User {
   chatMessages     ChatMessage[]
   createdCourts    Court[]        @relation("courtCreator")
   notifPrefs       NotificationPrefs?
+  pushSubs         PushSubscription[]
 
   @@map("users")
 }
@@ -200,4 +201,18 @@ model NotificationPrefs {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("notification_prefs")
+}
+
+// ─── Push Subscriptions ──────────────────────────────────
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userId    String?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("push_subscriptions")
 }
