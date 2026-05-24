@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { MobileTabs } from "@/components/mobile-tabs";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { MobileTabs } from "@/components/layout/mobile-tabs";
 import { CatChip, CATEGORY_LABEL } from "@/components/ui/cat-chip";
 import { LevelBalls } from "@/components/ui/level-balls";
 import { Avatar, AvatarRow } from "@/components/ui/avatar";

@@ -3,7 +3,7 @@ import {
   saveSubscription,
   removeSubscription,
   getSubscriptionCount,
-} from "@/lib/push";
+} from "@/lib/services/push";
 
 export async function POST(req: NextRequest) {
   try {

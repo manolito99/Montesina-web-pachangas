@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
+import { SiteHeader } from "@/components/layout/site-header";
 import { CatChip } from "@/components/ui/cat-chip";
 import { LevelBalls } from "@/components/ui/level-balls";
 import { NeoButton } from "@/components/ui/neo-button";

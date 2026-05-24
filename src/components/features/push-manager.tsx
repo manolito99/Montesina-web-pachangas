@@ -7,7 +7,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
   sendTestPush,
-} from "@/lib/push-client";
+} from "@/lib/services/push-client";
 import { NeoButton } from "@/components/ui/neo-button";
 import { cn } from "@/lib/utils";
 

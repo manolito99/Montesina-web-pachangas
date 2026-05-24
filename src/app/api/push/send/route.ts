@@ -3,7 +3,7 @@ import {
   webpush,
   getAllSubscriptions,
   removeSubscription,
-} from "@/lib/push";
+} from "@/lib/services/push";
 
 export async function POST(req: NextRequest) {
   try {

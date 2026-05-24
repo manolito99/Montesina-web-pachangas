@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { MobileTabs } from "@/components/mobile-tabs";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { MobileTabs } from "@/components/layout/mobile-tabs";
 import { PachangaCard } from "@/components/ui/pachanga-card";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { NeoCheckbox } from "@/components/ui/neo-checkbox";

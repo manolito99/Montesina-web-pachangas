@@ -18,7 +18,18 @@
       "PowerShell(gh auth *)",
       "PowerShell(git config *)",
       "PowerShell(gh *)",
-      "PowerShell(git init *)"
+      "PowerShell(git init *)",
+      "WebFetch(domain:localhost)",
+      "PowerShell(try { \\(Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 3\\).StatusCode } catch { \"Server not responding: $\\($_.Exception.Message\\)\" })",
+      "Bash(npx --yes playwright --version)",
+      "Bash(node -e ' *)",
+      "Bash(npx playwright *)",
+      "Bash(npm ls *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Nolo\\\\Music\\\\Montesiña_web_pachangas\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)"
     ]
   }
 }

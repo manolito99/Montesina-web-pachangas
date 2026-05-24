@@ -1,9 +1,9 @@
 import Link from "next/link";
 import FlatLogo from "@/assets/logo-montesina-flat.svg";
-import { LogoReveal } from "@/components/logo-reveal";
-import { MobileTabs } from "@/components/mobile-tabs";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
+import { LogoReveal } from "@/components/layout/logo-reveal";
+import { MobileTabs } from "@/components/layout/mobile-tabs";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteHeader } from "@/components/layout/site-header";
 import { NeoLinkButton } from "@/components/ui/neo-button";
 import { PachangaCard } from "@/components/ui/pachanga-card";
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
+import { SiteHeader } from "@/components/layout/site-header";
 import { NeoInput } from "@/components/ui/neo-input";
 import { NeoButton } from "@/components/ui/neo-button";
 import { LevelBalls } from "@/components/ui/level-balls";

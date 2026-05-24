@@ -36,52 +36,68 @@ docker exec montesina-web npm install <pkg>  # instalar paquetes DENTRO del cont
 
 ```
 src/
-├── app/
-│   ├── page.tsx                    # / — Home (navy hero desktop + compacto mobile)
-│   ├── layout.tsx                  # Root layout: fonts, metadata, SW registration
-│   ├── manifest.ts                 # PWA manifest via Next.js metadata API
-│   ├── globals.css                 # Tailwind + CSS vars + utilidades custom
-│   ├── (auth)/
-│   │   ├── layout.tsx              # Layout sin header/footer/tabs
-│   │   ├── login/page.tsx          # Split navy/paper login
-│   │   └── registro/page.tsx       # Registro con género + nivel
+├── app/                                # Next.js App Router — rutas y API
+│   ├── page.tsx                        # / — Home
+│   ├── layout.tsx                      # Root layout: fonts, metadata, SW
+│   ├── manifest.ts                     # PWA manifest
+│   ├── globals.css                     # Tailwind + CSS vars
+│   ├── (auth)/                         # Route group sin shell
+│   │   ├── layout.tsx
+│   │   ├── login/page.tsx
+│   │   └── registro/page.tsx
 │   ├── pachangas/
-│   │   ├── page.tsx                # Listado cards + sidebar filtros (client)
-│   │   ├── [id]/page.tsx           # Detalle con chat + waitlist (server)
-│   │   └── nueva/page.tsx          # Wizard 4 pasos crear pachanga (client)
-│   ├── reservas/page.tsx           # Booking pistas grid Doodle-style (client)
-│   ├── perfil/page.tsx             # Perfil con tabs + stats (client)
-│   ├── notificaciones/page.tsx     # Notificaciones + PushManager (client)
-│   └── api/push/
-│       ├── subscribe/route.ts      # POST guardar sub, DELETE eliminar
-│       └── send/route.ts           # POST enviar push a todos
+│   │   ├── page.tsx                    # Listado + filtros
+│   │   ├── [id]/page.tsx               # Detalle
+│   │   └── nueva/page.tsx              # Wizard crear
+│   ├── reservas/page.tsx               # Booking pistas
+│   ├── perfil/page.tsx                 # Perfil
+│   ├── notificaciones/page.tsx         # Notificaciones
+│   └── api/push/                       # API routes
+│       ├── subscribe/route.ts
+│       └── send/route.ts
+│
 ├── components/
-│   ├── site-header.tsx             # Header paper | navy-fade (client, framer-motion)
-│   ├── site-footer.tsx             # Footer (server)
-│   ├── mobile-tabs.tsx             # Bottom tabs móvil: Inicio/Pachangas/Pistas/Yo
-│   ├── logo-reveal.tsx             # Scroll-linked logo 3-layer composition (client)
-│   ├── push-manager.tsx            # UI para suscribirse/test push (client)
-│   └── ui/
-│       ├── neo-button.tsx          # NeoButton + NeoLinkButton (primary/ghost/outlineLime/secondary)
-│       ├── neo-card.tsx            # NeoCard (accent/dashed/flat)
-│       ├── neo-input.tsx           # NeoInput + NeoTextarea (label + styled input)
-│       ├── neo-checkbox.tsx        # NeoCheckbox (lime check, client)
-│       ├── pachanga-card.tsx       # PachangaCard (the main content card)
-│       ├── cat-chip.tsx            # CatChip M/F/X + CATEGORY_LABEL export
-│       ├── level-balls.tsx         # LevelBalls (1-5 filled circles)
-│       ├── avatar.tsx              # Avatar + AvatarRow
-│       ├── filter-chip.tsx         # FilterChip pill toggle (client)
-│       ├── stat-box.tsx            # StatBox (label + value)
-│       ├── page-tabs.tsx           # PageTabs horizontal con underline (client)
-│       ├── chat-message.tsx        # ChatMessage bubble
-│       ├── empty-state.tsx         # EmptyState empty/error
-│       └── fab.tsx                 # FAB floating "+" button
-└── lib/
-    ├── utils.ts                    # cn() = clsx + tailwind-merge
-    ├── types.ts                    # Pachanga, Player, Court, UserNotification, etc.
-    ├── mock-data.ts                # PACHANGAS (12), COURTS (4), CURRENT_USER, NOTIFICATIONS, BOOKING_GRID
-    ├── push.ts                     # web-push config + in-memory subscription store (server only)
-    └── push-client.ts              # subscribeToPush, unsubscribe, sendTestPush (browser only)
+│   ├── layout/                         # Componentes de layout/shell
+│   │   ├── site-header.tsx             # Header paper | navy-fade
+│   │   ├── site-footer.tsx             # Footer
+│   │   ├── mobile-tabs.tsx             # Bottom tabs móvil
+│   │   └── logo-reveal.tsx             # Scroll-linked logo reveal
+│   ├── features/                       # Componentes de funcionalidad específica
+│   │   └── push-manager.tsx            # UI push subscribe/test
+│   └── ui/                             # Primitivas UI reutilizables
+│       ├── neo-button.tsx, neo-card.tsx, neo-input.tsx, neo-checkbox.tsx
+│       ├── pachanga-card.tsx, cat-chip.tsx, level-balls.tsx
+│       ├── avatar.tsx, filter-chip.tsx, stat-box.tsx
+│       ├── page-tabs.tsx, chat-message.tsx, empty-state.tsx, fab.tsx
+│
+├── lib/
+│   ├── utils.ts                        # cn() = clsx + tailwind-merge
+│   ├── types.ts                        # Tipos compartidos
+│   ├── db.ts                           # Prisma client singleton (placeholder)
+│   ├── mock-data.ts                    # Datos mock (hasta conectar DB)
+│   └── services/                       # Lógica de negocio / acceso a datos
+│       ├── push.ts                     # web-push server-side
+│       └── push-client.ts             # Push API browser-side
+│
+├── config/
+│   └── constants.ts                    # Constantes de la app
+│
+├── assets/                             # SVGs importados como React components
+│   ├── logo-montesina.svg
+│   └── logo-montesina-flat.svg
+│
+└── types/
+    └── svg.d.ts                        # Declaración tipos SVG para SVGR
+
+docs/                                   # Documentación y assets de diseño
+├── wireframes/                         # Wireframes JSX originales
+└── logo-animation.mp4                  # Video animación del logo
+
+public/                                 # Assets estáticos
+├── sw.js                               # Service Worker
+├── icons/                              # PWA icons (192, 512, maskable, apple)
+├── logo-montesina.svg
+└── logo-montesina-flat.svg
 ```
 
 ## Paleta de colores
