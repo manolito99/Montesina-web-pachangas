@@ -103,6 +103,33 @@ function formatChatTime(iso: string): string {
   return `${hh}:${mm}`;
 }
 
+const CAT_EMOJI: Record<string, string> = { M: "♂️", F: "♀️", X: "🔀" };
+const CAT_NAME: Record<string, string> = { M: "Masculino", F: "Femenino", X: "Mixto" };
+
+function buildShareText(data: PachangaData, plazasLibres: number): string {
+  const date = formatDateRange(data.date, data.duration);
+  const court = `${data.court.name} (${data.court.type.toLowerCase()})`;
+  const cat = CAT_NAME[data.category] || data.category;
+  const emoji = CAT_EMOJI[data.category] || "🎾";
+  const price = formatPrice(data.price);
+  const link = `${typeof window !== "undefined" ? window.location.origin : ""}/pachangas/${data.id}`;
+
+  return [
+    `${emoji} *Pachanga ${cat}*`,
+    `📅 ${date}`,
+    `📍 ${court}`,
+    `💰 ${price}/jugador`,
+    `👥 ${plazasLibres > 0 ? `Quedan ${plazasLibres} plaza${plazasLibres !== 1 ? "s" : ""}` : "COMPLETO (lista de espera)"}`,
+    data.notes ? `📝 ${data.notes}` : "",
+    "",
+    `Apúntate aquí: ${link}`,
+  ].filter(Boolean).join("\n");
+}
+
+function buildWhatsAppUrl(data: PachangaData, plazasLibres: number): string {
+  return `https://wa.me/?text=${encodeURIComponent(buildShareText(data, plazasLibres))}`;
+}
+
 /* ──────────────────────────────────────────────
    Page component
    ────────────────────────────────────────────── */
@@ -388,6 +415,9 @@ function MainContent({
         </div>
       )}
 
+      {/* Share bar */}
+      <ShareBar data={data} plazasLibres={plazasLibres} />
+
       {/* Desktop CTA row */}
       <div className="hidden items-center gap-3 md:flex">
         <CtaBar
@@ -551,6 +581,77 @@ function CtaBar({
       <span className="font-hand text-xs text-muted">
         cancelacion hasta 12h antes
       </span>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────
+   Share bar
+   ────────────────────────────────────────────── */
+
+function ShareBar({ data, plazasLibres }: { data: PachangaData; plazasLibres: number }) {
+  const [copied, setCopied] = useState(false);
+  const link = typeof window !== "undefined"
+    ? `${window.location.origin}/pachangas/${data.id}`
+    : `/pachangas/${data.id}`;
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* fallback: select a hidden input */
+    }
+  }
+
+  async function handleNativeShare() {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Pachanga ${CAT_NAME[data.category]}`,
+          text: buildShareText(data, plazasLibres),
+          url: link,
+        });
+        return;
+      } catch { /* user cancelled */ }
+    }
+    window.open(buildWhatsAppUrl(data, plazasLibres), "_blank");
+  }
+
+  return (
+    <div className="rounded-lg border-[1.5px] border-dashed border-muted bg-paper-alt p-4">
+      <div className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
+        Compartir pachanga
+      </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          readOnly
+          value={link}
+          className="flex-1 truncate rounded-md border-[1.5px] border-ink bg-fill px-3 py-2 text-xs text-ink"
+          onFocus={(e) => e.target.select()}
+        />
+        <NeoButton size="sm" variant="ghost" onClick={handleCopy}>
+          {copied ? "✓ Copiado" : "Copiar"}
+        </NeoButton>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <NeoButton
+          size="sm"
+          variant="primary"
+          onClick={() => window.open(buildWhatsAppUrl(data, plazasLibres), "_blank")}
+          className="bg-[#25D366] border-[#25D366] text-white hover:bg-[#1da851]"
+        >
+          WhatsApp
+        </NeoButton>
+        {typeof navigator !== "undefined" && "share" in navigator && (
+          <NeoButton size="sm" variant="ghost" onClick={handleNativeShare}>
+            Compartir...
+          </NeoButton>
+        )}
+      </div>
     </div>
   );
 }
