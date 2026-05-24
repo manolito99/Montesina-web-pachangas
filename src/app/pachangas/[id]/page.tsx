@@ -168,6 +168,10 @@ export default function PachangaDetailPage() {
 
   /* ── Join handler ── */
   const handleJoin = async () => {
+    if (!currentUserId) {
+      window.location.href = `/login?callbackUrl=/pachangas/${id}`;
+      return;
+    }
     setActionLoading(true);
     try {
       await fetch(`/api/pachangas/${id}/join`, { method: "POST" });

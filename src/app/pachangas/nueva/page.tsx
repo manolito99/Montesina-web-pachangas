@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { MobileTabs } from "@/components/layout/mobile-tabs";
 import { CatChip } from "@/components/ui/cat-chip";
 import { LevelBalls } from "@/components/ui/level-balls";
 import { NeoButton } from "@/components/ui/neo-button";
@@ -693,6 +696,15 @@ function Step4({
 
 export default function NuevaPachangaPage() {
   const router = useRouter();
+  const { status: authStatus } = useSession();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (authStatus === "unauthenticated") {
+      router.push("/login?callbackUrl=/pachangas/nueva");
+    }
+  }, [authStatus, router]);
+
   const [state, setState] = useState<WizardState>({
     step: 1,
     category: null,
@@ -769,6 +781,19 @@ export default function NuevaPachangaPage() {
       setError(err instanceof Error ? err.message : "Error al publicar");
       setPublishing(false);
     }
+  }
+
+  if (authStatus !== "authenticated") {
+    return (
+      <>
+        <SiteHeader variant="paper" />
+        <main className="flex min-h-[60vh] items-center justify-center bg-paper">
+          <p className="font-hand text-muted">Cargando...</p>
+        </main>
+        <SiteFooter />
+        <MobileTabs active="Pachangas" />
+      </>
+    );
   }
 
   return (
