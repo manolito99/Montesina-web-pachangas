@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Send push notification filtered by preferences
-    const catName = { M: "Masculino", F: "Femenino", X: "Mixto" }[category] || category;
+    const catName = { M: "Masculino", F: "Femenino", X: "Mixto" }[category as "M" | "F" | "X"] || category;
     const d = new Date(date);
     const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
     const dateStr = `${dayNames[d.getDay()]} ${d.getDate()} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;

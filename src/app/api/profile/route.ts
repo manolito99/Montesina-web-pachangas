@@ -83,7 +83,7 @@ export async function GET() {
     by: ["pachangaId"],
     where: { userId, status: "CONFIRMED" },
   });
-  const pachangaIds = catCounts.map((c) => c.pachangaId);
+  const pachangaIds = catCounts.map((c: { pachangaId: string }) => c.pachangaId);
   const cats = pachangaIds.length > 0
     ? await db.pachanga.groupBy({
         by: ["category"],
@@ -93,7 +93,7 @@ export async function GET() {
       })
     : [];
   const favCategory = cats.length > 0
-    ? { M: "Masculino", F: "Femenino", X: "Mixto" }[cats[0].category] || "—"
+    ? { M: "Masculino", F: "Femenino", X: "Mixto" }[cats[0].category as "M" | "F" | "X"] || "—"
     : "—";
 
   // Attendance rate
