@@ -2,11 +2,16 @@
 const webpush = require("web-push") as typeof import("web-push");
 import { db } from "@/lib/db";
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+let vapidInitialized = false;
+function ensureVapid() {
+  if (vapidInitialized) return;
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT!,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  );
+  vapidInitialized = true;
+}
 
 export { webpush };
 
@@ -41,6 +46,7 @@ export async function sendPushToAll(payload: {
   url?: string;
   tag?: string;
 }) {
+  ensureVapid();
   const subs = await db.pushSubscription.findMany();
   if (subs.length === 0) return { sent: 0, failed: 0 };
 
@@ -89,7 +95,7 @@ export async function sendPushFiltered(
     excludeUserId?: string;
   },
 ) {
-  // Get all subscriptions with their user's notification prefs
+  ensureVapid();
   const subs = await db.pushSubscription.findMany({
     include: {
       user: {
