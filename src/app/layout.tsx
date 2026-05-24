@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Kalam } from "next/font/google";
 import { SwRegister } from "@/components/layout/sw-register";
 import { SessionProvider } from "@/components/layout/session-provider";
+import { InstallPrompt } from "@/components/features/install-prompt";
 import "./globals.css";
 
 const grotesk = Space_Grotesk({
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans antialiased text-ink">
         <SessionProvider>
           {children}
+          <InstallPrompt />
         </SessionProvider>
         <SwRegister />
       </body>
