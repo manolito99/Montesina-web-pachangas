@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sendPushToAll } from "@/lib/services/push";
 
 const DEMO_USER_ID = "user-demo";
 
@@ -42,6 +43,21 @@ export async function POST(
         where: { id: params.id },
         data: { status: "FULL" },
       });
+    }
+
+    // Notify: someone joined
+    const user = await db.user.findUnique({ where: { id: DEMO_USER_ID }, select: { name: true } });
+    const pachangaFull = await db.pachanga.findUnique({
+      where: { id: params.id },
+      include: { court: true },
+    });
+    if (pachangaFull) {
+      sendPushToAll({
+        title: `${user?.name ?? "Alguien"} se ha apuntado`,
+        body: `${pachangaFull.court.name} · ${confirmedCount + 1}/${pachangaFull.maxPlayers} jugadores`,
+        url: `/pachangas/${params.id}`,
+        tag: `join-${params.id}`,
+      }).catch(() => {});
     }
 
     return NextResponse.json(participation, { status: 201 });

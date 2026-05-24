@@ -59,3 +59,44 @@ export function getAllSubscriptions(): PushSubscriptionRecord[] {
 export function getSubscriptionCount(): number {
   return readSubs().size;
 }
+
+export async function sendPushToAll(payload: {
+  title: string;
+  body: string;
+  url?: string;
+  tag?: string;
+}): Promise<{ sent: number; failed: number }> {
+  const subscriptions = getAllSubscriptions();
+  if (subscriptions.length === 0) return { sent: 0, failed: 0 };
+
+  const data = JSON.stringify({
+    title: payload.title,
+    body: payload.body,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    url: payload.url || "/",
+    tag: payload.tag || `montesina-${Date.now()}`,
+  });
+
+  let sent = 0;
+  let failed = 0;
+
+  await Promise.allSettled(
+    subscriptions.map(async (sub) => {
+      try {
+        await webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, data);
+        sent++;
+      } catch (err: unknown) {
+        failed++;
+        const statusCode = err && typeof err === "object" && "statusCode" in err
+          ? (err as { statusCode: number }).statusCode : 0;
+        if (statusCode === 404 || statusCode === 410) {
+          removeSubscription(sub.endpoint);
+        }
+      }
+    }),
+  );
+
+  console.log(`[push] Broadcast: ${sent} sent, ${failed} failed`);
+  return { sent, failed };
+}

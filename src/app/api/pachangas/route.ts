@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sendPushToAll } from "@/lib/services/push";
 
 const DEMO_USER_ID = "user-demo";
 
@@ -68,6 +69,19 @@ export async function POST(req: NextRequest) {
         organizer: { select: { id: true, name: true } },
       },
     });
+
+    // Send push notification to all subscribers
+    const catName = { M: "Masculino", F: "Femenino", X: "Mixto" }[category] || category;
+    const d = new Date(date);
+    const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const dateStr = `${dayNames[d.getDay()]} ${d.getDate()} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
+    sendPushToAll({
+      title: `Nueva pachanga ${catName}`,
+      body: `${dateStr} · ${pachanga.court.name} · ${price}€/jugador`,
+      url: `/pachangas/${pachanga.id}`,
+      tag: `new-pachanga-${pachanga.id}`,
+    }).catch(() => {});
 
     return NextResponse.json(pachanga, { status: 201 });
   } catch (err) {
