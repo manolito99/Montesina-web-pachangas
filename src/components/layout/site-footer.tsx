@@ -10,12 +10,12 @@ export function SiteFooter() {
           <p>© {new Date().getFullYear()} Montesiña Padel · Club deportivo.</p>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/privacidad" className="font-hand text-xs text-muted hover:text-ink underline">
-            Privacidad
-          </Link>
-          <Link href="/condiciones" className="font-hand text-xs text-muted hover:text-ink underline">
-            Condiciones
-          </Link>
+          <a href="https://pachangasmontesina.cc/privacidad" className="font-hand text-xs text-muted hover:text-ink underline">
+            Politica de Privacidad
+          </a>
+          <a href="https://pachangasmontesina.cc/condiciones" className="font-hand text-xs text-muted hover:text-ink underline">
+            Condiciones del Servicio
+          </a>
         </div>
       </div>
     </footer>

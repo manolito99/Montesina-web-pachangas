@@ -76,13 +76,13 @@ export default function Home() {
       </main>
       <SiteFooter />
       <div className="bg-paper-alt px-6 pb-6 text-center">
-        <Link href="/privacidad" className="text-xs text-muted underline hover:text-ink">
+        <a href="https://pachangasmontesina.cc/privacidad" className="text-xs text-muted underline hover:text-ink">
           Politica de Privacidad
-        </Link>
+        </a>
         {" · "}
-        <Link href="/condiciones" className="text-xs text-muted underline hover:text-ink">
+        <a href="https://pachangasmontesina.cc/condiciones" className="text-xs text-muted underline hover:text-ink">
           Condiciones del Servicio
-        </Link>
+        </a>
       </div>
       <MobileTabs active="Inicio" />
     </>
