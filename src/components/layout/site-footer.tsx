@@ -1,3 +1,4 @@
+import Link from "next/link";
 import FlatLogo from "@/assets/logo-montesina-flat.svg";
 
 export function SiteFooter() {
@@ -8,9 +9,14 @@ export function SiteFooter() {
           <FlatLogo className="h-5 w-5 text-ink-2" aria-hidden />
           <p>© {new Date().getFullYear()} Montesiña Padel · Club deportivo.</p>
         </div>
-        <p className="font-hand text-muted">
-          Hecho con cariño para los socios del club.
-        </p>
+        <div className="flex items-center gap-4">
+          <Link href="/privacidad" className="font-hand text-xs text-muted hover:text-ink underline">
+            Privacidad
+          </Link>
+          <Link href="/condiciones" className="font-hand text-xs text-muted hover:text-ink underline">
+            Condiciones
+          </Link>
+        </div>
       </div>
     </footer>
   );
