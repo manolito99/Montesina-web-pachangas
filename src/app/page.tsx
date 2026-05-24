@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import FlatLogo from "@/assets/logo-montesina-flat.svg";
 import { LogoReveal } from "@/components/layout/logo-reveal";
@@ -7,37 +10,69 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { NeoLinkButton } from "@/components/ui/neo-button";
 import { PachangaCard } from "@/components/ui/pachanga-card";
 
-const FEATURED = [
-  { id: "1", cat: "X" as const, date: "HOY · 19:00", filled: 3, accent: true },
-  {
-    id: "2",
-    cat: "M" as const,
-    date: "MAÑ · 20:30",
-    pista: "Pista 1 · outdoor",
-    nivel: 4,
-    filled: 2,
-    organizer: "Carlos R.",
-  },
-  {
-    id: "3",
-    cat: "F" as const,
-    date: "JUE · 18:00",
-    pista: "Pista 2 · indoor",
-    nivel: 2,
-    filled: 4,
-    max: 4,
-    organizer: "Lucía V.",
-  },
-];
+interface ApiPachanga {
+  id: string;
+  category: "M" | "F" | "X";
+  date: string;
+  duration: number;
+  court: { name: string; type: string };
+  maxPlayers: number;
+  price: string;
+  organizer: { name: string };
+  _count: { participations: number };
+}
+
+function formatPachanga(p: ApiPachanga) {
+  const d = new Date(p.date);
+  const days = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = d.toDateString() === tomorrow.toDateString();
+  const dayLabel = isToday ? "HOY" : isTomorrow ? "MAÑ" : days[d.getDay()];
+  const time = d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+  const filled = p._count.participations;
+
+  return {
+    id: p.id,
+    cat: p.category,
+    date: `${dayLabel} · ${time}`,
+    time: `${time} · ${p.duration}min`,
+    pista: `${p.court.name} · ${p.court.type.toLowerCase()}`,
+    nivel: 3,
+    filled,
+    max: p.maxPlayers,
+    organizer: p.organizer.name,
+    price: `${parseFloat(p.price)}€`,
+    accent: isToday && filled < p.maxPlayers,
+  };
+}
 
 export default function Home() {
+  const [pachangas, setPachangas] = useState<ReturnType<typeof formatPachanga>[]>([]);
+
+  useEffect(() => {
+    fetch("/api/pachangas")
+      .then((r) => r.json())
+      .then((data: ApiPachanga[]) => {
+        const now = new Date();
+        const upcoming = data
+          .filter((p) => new Date(p.date) >= now)
+          .slice(0, 3)
+          .map(formatPachanga);
+        setPachangas(upcoming);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <>
       <SiteHeader variant="navy-fade" />
       <main className="pb-12">
         <MobileHero />
         <DesktopHero />
-        <FeaturedSection />
+        <FeaturedSection pachangas={pachangas} />
       </main>
       <SiteFooter />
       <MobileTabs active="Inicio" />
@@ -117,7 +152,7 @@ function DesktopHero() {
   );
 }
 
-function FeaturedSection() {
+function FeaturedSection({ pachangas }: { pachangas: ReturnType<typeof formatPachanga>[] }) {
   return (
     <section className="border-t-[1.5px] border-ink bg-paper-alt px-6 py-16">
       <div className="container">
@@ -132,13 +167,35 @@ function FeaturedSection() {
             ver todas →
           </Link>
         </div>
-        <ul className="mt-6 grid gap-4 md:grid-cols-3">
-          {FEATURED.map((m) => (
-            <li key={m.id}>
-              <PachangaCard {...m} href={`/pachangas/${m.id}`} />
-            </li>
-          ))}
-        </ul>
+
+        {pachangas.length === 0 ? (
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted">No hay pachangas programadas.</p>
+            <Link href="/pachangas/nueva" className="mt-2 inline-block font-hand text-sm font-bold text-lime-deep">
+              Crea la primera →
+            </Link>
+          </div>
+        ) : (
+          <ul className="mt-6 grid gap-4 md:grid-cols-3">
+            {pachangas.map((p) => (
+              <li key={p.id}>
+                <PachangaCard
+                  cat={p.cat}
+                  date={p.date}
+                  time={p.time}
+                  pista={p.pista}
+                  nivel={p.nivel}
+                  filled={p.filled}
+                  max={p.max}
+                  organizer={p.organizer}
+                  price={p.price}
+                  accent={p.accent}
+                  href={`/pachangas/${p.id}`}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );
