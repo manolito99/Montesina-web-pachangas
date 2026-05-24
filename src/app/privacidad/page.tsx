@@ -57,8 +57,8 @@ export default function PrivacidadPage() {
             <p>
               Puedes ejercer tus derechos de acceso, rectificacion, supresion, limitacion
               y portabilidad escribiendo a{" "}
-              <a href="mailto:motero@swapenergia.com" className="font-bold text-lime-deep underline">
-                motero@swapenergia.com
+              <a href="mailto:nolomanolo990@gmail.com" className="font-bold text-lime-deep underline">
+                nolomanolo990@gmail.com
               </a>.
             </p>
 

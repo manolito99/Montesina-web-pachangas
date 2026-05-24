@@ -63,8 +63,8 @@ export default function CondicionesPage() {
             <h2 className="text-base font-bold text-ink">8. Contacto</h2>
             <p>
               Para cualquier consulta:{" "}
-              <a href="mailto:motero@swapenergia.com" className="font-bold text-lime-deep underline">
-                motero@swapenergia.com
+              <a href="mailto:nolomanolo990@gmail.com" className="font-bold text-lime-deep underline">
+                nolomanolo990@gmail.com
               </a>
             </p>
           </section>
