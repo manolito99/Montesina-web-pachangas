@@ -13,6 +13,22 @@ import { cn } from "@/lib/utils";
 
 type Status = "loading" | "unsupported" | "default" | "denied" | "subscribed";
 
+function isIOS() {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window);
+}
+
+function isAndroid() {
+  if (typeof navigator === "undefined") return false;
+  return /Android/.test(navigator.userAgent);
+}
+
+function isStandalone() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(display-mode: standalone)").matches
+    || ("standalone" in navigator && (navigator as unknown as { standalone: boolean }).standalone);
+}
+
 export function PushManager({ className }: { className?: string }) {
   const [status, setStatus] = useState<Status>("loading");
   const [sending, setSending] = useState(false);
@@ -161,6 +177,68 @@ export function PushManager({ className }: { className?: string }) {
       {message && (
         <p className="mt-2 font-hand text-sm text-lime-deep">{message}</p>
       )}
+
+      {!isStandalone() && <InstallHint />}
+    </div>
+  );
+}
+
+function InstallHint() {
+  const [open, setOpen] = useState(false);
+  const ios = isIOS();
+  const android = isAndroid();
+
+  return (
+    <div className="mt-4 rounded-lg border-[1.5px] border-dashed border-muted bg-paper-alt p-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-ink-2">
+          {ios
+            ? "En iPhone, instala la app para recibir notificaciones."
+            : "Instala la app para no perderte ninguna notificacion."}
+        </p>
+        <button
+          onClick={() => setOpen(!open)}
+          className="ml-2 shrink-0 text-xs font-bold text-lime-deep underline"
+        >
+          {open ? "Cerrar" : "Saber mas"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-2.5">
+          {ios ? (
+            <>
+              <HintStep n={1} text='Abre esta pagina en Safari' />
+              <HintStep n={2} text='Pulsa el icono de compartir (cuadrado con flecha)' />
+              <HintStep n={3} text='Baja y pulsa "Añadir a pantalla de inicio"' />
+              <HintStep n={4} text='Pulsa "Añadir"' />
+              <HintStep n={5} text='Abre la app y activa notificaciones en Ajustes > Notificaciones > Montesiña' />
+            </>
+          ) : android ? (
+            <>
+              <HintStep n={1} text='Pulsa el menu (tres puntos) del navegador' />
+              <HintStep n={2} text='Pulsa "Instalar aplicacion"' />
+              <HintStep n={3} text='Confirma y se añadira a tu pantalla de inicio' />
+            </>
+          ) : (
+            <>
+              <HintStep n={1} text='En Chrome, pulsa el icono de instalar en la barra de URL' />
+              <HintStep n={2} text='O ve al menu > "Instalar Montesiña Padel"' />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HintStep({ n, text }: { n: number; text: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-lime text-[10px] font-bold text-ink">
+        {n}
+      </span>
+      <span className="text-xs text-ink">{text}</span>
     </div>
   );
 }
