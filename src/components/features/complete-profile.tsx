@@ -9,7 +9,7 @@ import { NeoButton } from "@/components/ui/neo-button";
 export function CompleteProfile() {
   const { data: session, status } = useSession();
   const [show, setShow] = useState(false);
-  const [gender, setGender] = useState<"MALE" | "FEMALE">("MALE");
+  const [gender, setGender] = useState<"MALE" | "FEMALE" | null>(null);
   const [level, setLevel] = useState(3);
   const [saving, setSaving] = useState(false);
 
@@ -107,8 +107,8 @@ export function CompleteProfile() {
         </div>
 
         <div className="mt-6">
-          <NeoButton onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? "Guardando..." : "Guardar"}
+          <NeoButton onClick={handleSave} disabled={saving || !gender} className="w-full">
+            {saving ? "Guardando..." : !gender ? "Selecciona tu genero" : "Guardar"}
           </NeoButton>
         </div>
       </div>
