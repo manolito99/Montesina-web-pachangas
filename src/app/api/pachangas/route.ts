@@ -91,13 +91,15 @@ export async function POST(req: NextRequest) {
     // Send push notification filtered by preferences
     const catName = { M: "Masculino", F: "Femenino", X: "Mixto" }[category as "M" | "F" | "X"] || category;
     const d = new Date(date);
-    const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-    const dateStr = `${dayNames[d.getDay()]} ${d.getDate()} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const dayNames = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+    const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+    const dateStr = `${dayNames[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+    const timeStr = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 
     sendPushFiltered(
       {
         title: `Nueva pachanga ${catName}`,
-        body: `${dateStr} · ${pachanga.court.name} · ${price}€/jugador`,
+        body: `${dateStr} · ${timeStr}h · ${pachanga.court.name} · ${price}€`,
         url: `/pachangas/${pachanga.id}`,
         tag: `new-pachanga-${pachanga.id}`,
       },
@@ -108,7 +110,7 @@ export async function POST(req: NextRequest) {
         courtId,
         excludeUserId: userId,
       },
-    ).catch(() => {});
+    ).catch((err) => console.error("[push] new pachanga notify error:", err));
 
     return NextResponse.json(pachanga, { status: 201 });
   } catch (err) {

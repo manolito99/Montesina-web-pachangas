@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { sendPushToAll } from "@/lib/services/push";
+import { sendPushToParticipants } from "@/lib/services/push";
 
 async function getUserId(): Promise<string | null> {
   const session = await getServerSession(authOptions);
@@ -64,18 +64,27 @@ export async function POST(
       });
     }
 
-    // Notify: someone joined
+    // Notify only other participants of this pachanga
     const pachangaFull = await db.pachanga.findUnique({
       where: { id: params.id },
       include: { court: true },
     });
     if (pachangaFull) {
-      sendPushToAll({
-        title: `${user?.name ?? "Alguien"} se ha apuntado`,
-        body: `${pachangaFull.court.name} · ${confirmedCount + 1}/${pachangaFull.maxPlayers} jugadores`,
-        url: `/pachangas/${params.id}`,
-        tag: `join-${params.id}`,
-      }).catch(() => {});
+      const plazas = confirmedCount + 1;
+      const faltan = pachangaFull.maxPlayers - plazas;
+      const statusText = faltan === 0
+        ? "Completo!"
+        : `${plazas}/${pachangaFull.maxPlayers} · faltan ${faltan}`;
+      sendPushToParticipants(
+        {
+          title: `${user?.name ?? "Alguien"} se ha apuntado`,
+          body: `${pachangaFull.court.name} · ${statusText}`,
+          url: `/pachangas/${params.id}`,
+          tag: `join-${params.id}`,
+        },
+        params.id,
+        userId,
+      ).catch((err) => console.error("[push] join notify error:", err));
     }
 
     return NextResponse.json(participation, { status: 201 });
