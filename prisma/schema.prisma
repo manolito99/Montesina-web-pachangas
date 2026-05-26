@@ -128,9 +128,10 @@ model Participation {
   user       User                @relation(fields: [userId], references: [id])
   pachangaId String              @map("pachanga_id")
   pachanga   Pachanga            @relation(fields: [pachangaId], references: [id])
-  status     ParticipationStatus @default(CONFIRMED)
-  position   Int?
-  joinedAt   DateTime            @default(now()) @map("joined_at")
+  status         ParticipationStatus @default(CONFIRMED)
+  position       Int?
+  joinedAt       DateTime            @default(now()) @map("joined_at")
+  reminderSentAt DateTime?           @map("reminder_sent_at")
 
   @@unique([userId, pachangaId])
   @@map("participations")

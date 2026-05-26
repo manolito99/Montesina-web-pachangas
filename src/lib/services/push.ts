@@ -244,3 +244,59 @@ export async function sendPushFiltered(
   console.log(`[push] Filtered: ${sent} sent, ${failed} failed, ${skipped} skipped`);
   return { sent, failed, skipped };
 }
+
+export async function processReminders() {
+  ensureVapid();
+  const now = new Date();
+  const maxWindow = new Date(now.getTime() + 120 * 60 * 1000);
+
+  const participations = await db.participation.findMany({
+    where: {
+      status: "CONFIRMED",
+      reminderSentAt: null,
+      pachanga: { date: { gt: now, lte: maxWindow } },
+    },
+    include: {
+      user: { include: { notifPrefs: true, pushSubs: true } },
+      pachanga: { include: { court: true } },
+    },
+  });
+
+  if (participations.length === 0) return { sent: 0, skipped: 0 };
+
+  let sent = 0;
+  let skipped = 0;
+
+  for (const p of participations) {
+    const prefs = p.user.notifPrefs;
+    if (!prefs || !prefs.recordatorio) { skipped++; continue; }
+
+    const minutesUntil = (p.pachanga.date.getTime() - now.getTime()) / 60000;
+    if (minutesUntil > prefs.minutesBefore) { skipped++; continue; }
+
+    const subs = p.user.pushSubs;
+    if (subs.length === 0) { skipped++; continue; }
+
+    const d = p.pachanga.date;
+    const timeStr = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const catName = { M: "Masculino", F: "Femenino", X: "Mixto" }[p.pachanga.category] || p.pachanga.category;
+
+    const data = buildPayload({
+      title: `Tu pachanga empieza pronto`,
+      body: `${catName} · ${timeStr}h · ${p.pachanga.court.name}`,
+      url: `/pachangas/${p.pachanga.id}`,
+      tag: `reminder-${p.pachanga.id}`,
+    });
+
+    const result = await sendToSubs(subs, data);
+    sent += result.sent;
+
+    await db.participation.update({
+      where: { id: p.id },
+      data: { reminderSentAt: now },
+    });
+  }
+
+  console.log(`[push] Reminders: ${sent} sent, ${skipped} skipped`);
+  return { sent, skipped };
+}
