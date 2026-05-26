@@ -134,6 +134,37 @@ export async function sendPushToParticipants(
   return result;
 }
 
+export async function sendPushPlazaLibre(
+  payload: { title: string; body: string; url?: string; tag?: string },
+  filter: { category: string; courtId: string },
+) {
+  ensureVapid();
+  const subs = await db.pushSubscription.findMany({
+    include: { user: { include: { notifPrefs: true } } },
+  });
+
+  if (subs.length === 0) return { sent: 0, failed: 0 };
+
+  const data = buildPayload(payload);
+
+  const eligible = subs.filter((sub) => {
+    const prefs = sub.user?.notifPrefs;
+    if (!prefs) return false;
+    if (!prefs.plazaLibre) return false;
+    if (filter.category === "M" && !prefs.catMasculino) return false;
+    if (filter.category === "F" && !prefs.catFemenino) return false;
+    if (filter.category === "X" && !prefs.catMixto) return false;
+    if (prefs.courtId && prefs.courtId !== filter.courtId) return false;
+    return true;
+  });
+
+  if (eligible.length === 0) return { sent: 0, failed: 0 };
+
+  const result = await sendToSubs(eligible, data);
+  console.log(`[push] Plaza libre: ${result.sent} sent, ${result.failed} failed`);
+  return result;
+}
+
 export async function sendPushFiltered(
   payload: { title: string; body: string; url?: string; tag?: string },
   filter: {

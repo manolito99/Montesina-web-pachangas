@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { sendPushToParticipants } from "@/lib/services/push";
+import { sendPushToParticipants, sendPushPlazaLibre } from "@/lib/services/push";
 
 async function getUserId(): Promise<string | null> {
   const session = await getServerSession(authOptions);
@@ -122,7 +122,9 @@ export async function DELETE(
 
     const pachanga = await db.pachanga.findUnique({ where: { id: params.id } });
 
-    if (pachanga && confirmedCount < pachanga.maxPlayers && pachanga.status === "FULL") {
+    const wasFull = pachanga?.status === "FULL";
+
+    if (pachanga && confirmedCount < pachanga.maxPlayers && wasFull) {
       await db.pachanga.update({
         where: { id: params.id },
         data: { status: "OPEN" },
@@ -138,6 +140,29 @@ export async function DELETE(
           where: { id: nextInWaitlist.id },
           data: { status: "CONFIRMED", position: null },
         });
+      }
+    }
+
+    // Notify: plaza libre (only if pachanga was full and now has space)
+    if (wasFull && pachanga) {
+      const full = await db.pachanga.findUnique({
+        where: { id: params.id },
+        include: { court: true },
+      });
+      if (full) {
+        const catName = { M: "Masculino", F: "Femenino", X: "Mixto" }[full.category] || full.category;
+        const d = new Date(full.date);
+        const dayNames = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+        const timeStr = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        sendPushPlazaLibre(
+          {
+            title: `Plaza libre en pachanga ${catName}`,
+            body: `${dayNames[d.getDay()]} ${d.getDate()} · ${timeStr}h · ${full.court.name}`,
+            url: `/pachangas/${params.id}`,
+            tag: `plaza-libre-${params.id}`,
+          },
+          { category: full.category, courtId: full.courtId },
+        ).catch((err) => console.error("[push] plaza libre error:", err));
       }
     }
 
