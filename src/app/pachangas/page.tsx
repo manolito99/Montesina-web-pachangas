@@ -65,8 +65,8 @@ const CATS: { label: string; value: Category | null }[] = [
 
 export default function PachangasPage() {
   const [cat, setCat] = useState<Category | null>(null);
-  const [dateFilter, setDateFilter] = useState<string>("Hoy");
-  const [onlyFree, setOnlyFree] = useState(true);
+  const [dateFilter, setDateFilter] = useState<string>("Todas");
+  const [onlyFree, setOnlyFree] = useState(false);
   const [levelRange] = useState<[number, number]>([1, 5]);
   const [pachangas, setPachangas] = useState<ReturnType<typeof formatPachanga>[]>([]);
   const [loading, setLoading] = useState(true);
