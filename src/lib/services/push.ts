@@ -3,7 +3,7 @@ const webpush = require("web-push") as typeof import("web-push");
 import { db } from "@/lib/db";
 
 let vapidInitialized = false;
-function ensureVapid() {
+export function ensureVapid() {
   if (vapidInitialized) return;
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT!,
