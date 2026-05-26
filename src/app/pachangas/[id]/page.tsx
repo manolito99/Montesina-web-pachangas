@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -137,6 +137,7 @@ function buildWhatsAppUrl(data: PachangaData, plazasLibres: number): string {
 
 export default function PachangaDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { data: session } = useSession();
   const currentUserId = (session?.user as { id?: string })?.id ?? null;
 
@@ -192,6 +193,23 @@ export default function PachangaDetailPage() {
     try {
       await fetch(`/api/pachangas/${id}/join`, { method: "DELETE" });
       await fetchPachanga();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /* ── Delete handler (organizer only) ── */
+  const handleDelete = async () => {
+    if (!confirm("¿Seguro que quieres eliminar esta pachanga? Se notificará a todos los apuntados.")) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/pachangas/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/pachangas");
+      } else {
+        const err = await res.json();
+        alert(err.error || "No se pudo eliminar");
+      }
     } finally {
       setActionLoading(false);
     }
@@ -291,6 +309,8 @@ export default function PachangaDetailPage() {
               actionLoading={actionLoading}
               onJoin={handleJoin}
               onLeave={handleLeave}
+              isOrganizer={currentUserId === data.organizerId}
+              onDelete={handleDelete}
             />
           </div>
 
@@ -345,6 +365,8 @@ function MainContent({
   actionLoading,
   onJoin,
   onLeave,
+  isOrganizer,
+  onDelete,
 }: {
   data: PachangaData;
   confirmed: Participation[];
@@ -356,6 +378,8 @@ function MainContent({
   actionLoading: boolean;
   onJoin: () => void;
   onLeave: () => void;
+  isOrganizer: boolean;
+  onDelete: () => void;
 }) {
   const dateDisplay = formatDateRange(data.date, data.duration);
   const courtDisplay = `${data.court.name} · ${data.court.type.toLowerCase()}`;
@@ -433,6 +457,17 @@ function MainContent({
 
       {/* Share bar */}
       <ShareBar data={data} plazasLibres={plazasLibres} />
+
+      {/* Delete button (organizer only) */}
+      {isOrganizer && (
+        <button
+          onClick={onDelete}
+          disabled={actionLoading}
+          className="text-xs font-semibold text-rose-600 underline hover:text-rose-800"
+        >
+          Eliminar pachanga
+        </button>
+      )}
 
       {/* Desktop CTA row */}
       <div className="hidden items-center gap-3 md:flex">

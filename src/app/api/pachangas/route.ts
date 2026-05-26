@@ -11,6 +11,7 @@ async function getUserId(): Promise<string | null> {
 
 export async function GET() {
   const pachangas = await db.pachanga.findMany({
+    where: { date: { gte: new Date() } },
     include: {
       court: true,
       organizer: { select: { id: true, name: true, level: true } },
