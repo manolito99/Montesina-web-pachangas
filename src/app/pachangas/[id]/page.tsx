@@ -698,7 +698,7 @@ function ShareBar({ data, plazasLibres }: { data: PachangaData; plazasLibres: nu
           WhatsApp
         </NeoButton>
         <NeoButton size="sm" variant="ghost" onClick={() => downloadCalendarEvent(data)}>
-          Calendario
+          Añadir al calendario
         </NeoButton>
         {typeof navigator !== "undefined" && "share" in navigator && (
           <NeoButton size="sm" variant="ghost" onClick={handleNativeShare}>
