@@ -441,43 +441,25 @@ function Step3({
   organizerName: string;
 }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<PlayerInfo[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [allUsers, setAllUsers] = useState<PlayerInfo[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Debounced search
   useEffect(() => {
-    if (query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const genderParam =
-          category === "M"
-            ? "MALE"
-            : category === "F"
-              ? "FEMALE"
-              : "";
-        const url = `/api/users/search?q=${encodeURIComponent(query.trim())}${
-          genderParam ? `&gender=${genderParam}` : ""
-        }`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data);
-        }
-      } catch {
-        /* ignore */
-      }
-      setSearching(false);
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [query, category]);
+    const genderParam =
+      category === "M" ? "MALE" : category === "F" ? "FEMALE" : "";
+    const url = `/api/users/search?q=${genderParam ? `&gender=${genderParam}` : ""}`;
+    fetch(url)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setAllUsers)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [category]);
 
   const playerIdSet = new Set(players.map((p) => p.id));
+  const q = query.trim().toLowerCase();
+  const results = allUsers.filter((u) =>
+    !playerIdSet.has(u.id) && (!q || u.name.toLowerCase().includes(q))
+  );
 
   return (
     <div className="space-y-6">
@@ -497,48 +479,40 @@ function Step3({
         </label>
       </div>
 
-      {/* Search results */}
-      {searching && (
-        <p className="text-xs text-muted">Buscando...</p>
-      )}
-      {results.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {results
-            .filter((r) => !playerIdSet.has(r.id))
-            .map((user) => (
-              <button
-                key={user.id}
-                type="button"
-                onClick={() => addPlayer(user)}
-                className="flex items-center gap-3 rounded-lg border-[1.5px] border-ink bg-fill p-3 text-left transition-all hover:bg-paper-alt"
-              >
-                <Avatar
-                  label={user.name.charAt(0).toUpperCase()}
-                  size={36}
-                />
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-bold text-ink truncate block">
-                    {user.name}
-                  </span>
-                  <span className="flex items-center gap-1 text-xs text-muted">
-                    Nivel <LevelBalls value={user.level} size={8} />
-                  </span>
-                </div>
-                <span className="text-xs font-semibold text-lime-deep">
-                  + Agregar
+      {/* Available players */}
+      {loading ? (
+        <p className="text-xs text-muted">Cargando jugadores...</p>
+      ) : results.length > 0 ? (
+        <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+          {results.map((user) => (
+            <button
+              key={user.id}
+              type="button"
+              onClick={() => addPlayer(user)}
+              className="flex items-center gap-3 rounded-lg border-[1.5px] border-ink bg-fill p-3 text-left transition-all hover:bg-paper-alt"
+            >
+              <Avatar
+                label={user.name.charAt(0).toUpperCase()}
+                size={36}
+              />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-bold text-ink truncate block">
+                  {user.name}
                 </span>
-              </button>
-            ))}
-          {results.filter((r) => !playerIdSet.has(r.id)).length === 0 &&
-            results.length > 0 && (
-              <p className="text-xs text-muted">
-                Todos los resultados ya estan en la lista.
-              </p>
-            )}
+                <span className="flex items-center gap-1 text-xs text-muted">
+                  Nivel <LevelBalls value={user.level} size={8} />
+                </span>
+              </div>
+              <span className="text-xs font-semibold text-lime-deep">
+                + Agregar
+              </span>
+            </button>
+          ))}
         </div>
-      )}
-      {query.trim().length >= 2 && !searching && results.length === 0 && (
-        <p className="text-xs text-muted">No se encontraron jugadores.</p>
+      ) : (
+        <p className="text-xs text-muted">
+          {allUsers.length === 0 ? "No hay jugadores registrados." : "Todos los jugadores ya estan en la lista."}
+        </p>
       )}
 
       {/* Selected players */}
