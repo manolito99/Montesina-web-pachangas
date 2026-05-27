@@ -67,9 +67,11 @@ model User {
   createdPachangas Pachanga[]     @relation("organizer")
   participations   Participation[]
   chatMessages     ChatMessage[]
-  createdCourts    Court[]        @relation("courtCreator")
-  notifPrefs       NotificationPrefs?
-  pushSubs         PushSubscription[]
+  createdCourts        Court[]              @relation("courtCreator")
+  notifPrefs           NotificationPrefs?
+  pushSubs             PushSubscription[]
+  createdTournaments   Tournament[]         @relation("tournamentOrganizer")
+  tournamentPlayers    TournamentPlayer[]
 
   @@map("users")
 }
@@ -217,4 +219,96 @@ model PushSubscription {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("push_subscriptions")
+}
+
+// ─── Tournaments ────────────────────────────────────────
+
+enum TournamentFormat {
+  AMERICANO
+  MEXICANO
+}
+
+enum TournamentStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  FINISHED
+}
+
+model Tournament {
+  id             String           @id @default(cuid())
+  name           String
+  format         TournamentFormat
+  category       Category
+  status         TournamentStatus @default(DRAFT)
+  pointsPerMatch Int              @default(21) @map("points_per_match")
+  courtIds       String[]         @map("court_ids")
+  notes          String?
+
+  organizerId    String           @map("organizer_id")
+  organizer      User             @relation("tournamentOrganizer", fields: [organizerId], references: [id])
+
+  currentRound   Int              @default(0) @map("current_round")
+
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  players        TournamentPlayer[]
+  rounds         TournamentRound[]
+
+  @@map("tournaments")
+}
+
+model TournamentPlayer {
+  id           String     @id @default(cuid())
+  tournamentId String     @map("tournament_id")
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String     @map("user_id")
+  user         User       @relation(fields: [userId], references: [id])
+  totalPoints  Int        @default(0) @map("total_points")
+  joinedAt     DateTime   @default(now()) @map("joined_at")
+
+  matchesAsP1  TournamentMatch[] @relation("matchP1")
+  matchesAsP2  TournamentMatch[] @relation("matchP2")
+  matchesAsP3  TournamentMatch[] @relation("matchP3")
+  matchesAsP4  TournamentMatch[] @relation("matchP4")
+
+  @@unique([tournamentId, userId])
+  @@map("tournament_players")
+}
+
+model TournamentRound {
+  id           String     @id @default(cuid())
+  tournamentId String     @map("tournament_id")
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  roundNumber  Int        @map("round_number")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  matches      TournamentMatch[]
+
+  @@unique([tournamentId, roundNumber])
+  @@map("tournament_rounds")
+}
+
+model TournamentMatch {
+  id         String          @id @default(cuid())
+  roundId    String          @map("round_id")
+  round      TournamentRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  courtIndex Int             @default(0) @map("court_index")
+
+  player1Id  String          @map("player1_id")
+  player1    TournamentPlayer @relation("matchP1", fields: [player1Id], references: [id])
+  player2Id  String          @map("player2_id")
+  player2    TournamentPlayer @relation("matchP2", fields: [player2Id], references: [id])
+  player3Id  String          @map("player3_id")
+  player3    TournamentPlayer @relation("matchP3", fields: [player3Id], references: [id])
+  player4Id  String          @map("player4_id")
+  player4    TournamentPlayer @relation("matchP4", fields: [player4Id], references: [id])
+
+  scoreTeamA Int?            @map("score_team_a")
+  scoreTeamB Int?            @map("score_team_b")
+  completed  Boolean         @default(false)
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  @@map("tournament_matches")
 }

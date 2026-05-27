@@ -10,12 +10,12 @@ export type HeaderVariant = "paper" | "navy-fade";
 
 interface SiteHeaderProps {
   variant?: HeaderVariant;
-  active?: "Pachangas" | "Comunidad";
+  active?: "Pachangas" | "Torneos" | "Comunidad";
 }
 
 const NAV: { href: string; label: SiteHeaderProps["active"] }[] = [
   { href: "/pachangas", label: "Pachangas" },
-  // { href: "/reservas", label: "Pistas" }, // oculto: reservas se gestionan fuera de la app
+  { href: "/torneos", label: "Torneos" },
   { href: "/comunidad", label: "Comunidad" },
 ];
 
