@@ -3,24 +3,29 @@
 import { useEffect } from "react";
 
 const STORAGE_KEY = "montesina-font-size";
-const SIZES: Record<string, string> = {
-  normal: "16px",
-  grande: "18px",
-  "muy-grande": "20px",
+const ZOOM_LEVELS: Record<string, number> = {
+  normal: 1,
+  grande: 1.15,
+  "muy-grande": 1.3,
 };
 
 export function FontSizeProvider() {
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY) || "normal";
-    document.documentElement.style.fontSize = SIZES[saved] || "16px";
+    applyZoom(saved);
   }, []);
 
   return null;
 }
 
+function applyZoom(size: string) {
+  const zoom = ZOOM_LEVELS[size] || 1;
+  document.body.style.zoom = String(zoom);
+}
+
 export function setFontSize(size: string) {
   localStorage.setItem(STORAGE_KEY, size);
-  document.documentElement.style.fontSize = SIZES[size] || "16px";
+  applyZoom(size);
 }
 
 export function getFontSize(): string {
