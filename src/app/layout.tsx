@@ -4,6 +4,7 @@ import { SwRegister } from "@/components/layout/sw-register";
 import { SessionProvider } from "@/components/layout/session-provider";
 import { InstallPrompt } from "@/components/features/install-prompt";
 import { CompleteProfile } from "@/components/features/complete-profile";
+import { FontSizeProvider } from "@/components/features/font-size-provider";
 import "./globals.css";
 
 const grotesk = Space_Grotesk({
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InstallPrompt />
           <CompleteProfile />
         </SessionProvider>
+        <FontSizeProvider />
         <SwRegister />
       </body>
     </html>

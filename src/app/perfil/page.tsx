@@ -12,6 +12,7 @@ import { PageTabs } from "@/components/ui/page-tabs";
 import { StatBox } from "@/components/ui/stat-box";
 import { NeoButton } from "@/components/ui/neo-button";
 import { cn } from "@/lib/utils";
+import { getFontSize, setFontSize } from "@/components/features/font-size-provider";
 
 interface ProfileUser {
   id: string;
@@ -264,13 +265,16 @@ export default function PerfilPage() {
               />
             )}
             {activeTab === 2 && (
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <StatBox label="Partidos jugados">{stats.played}</StatBox>
-                <StatBox label="Este mes">{stats.thisMonth}</StatBox>
-                <StatBox label="Asistencia">{stats.attendance}</StatBox>
-                <StatBox label="Categ. favorita">{stats.favCategory}</StatBox>
-                <StatBox label="Pachangas creadas">{stats.created}</StatBox>
-                <StatBox label="Nivel">{user.level}</StatBox>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <StatBox label="Partidos jugados">{stats.played}</StatBox>
+                  <StatBox label="Este mes">{stats.thisMonth}</StatBox>
+                  <StatBox label="Asistencia">{stats.attendance}</StatBox>
+                  <StatBox label="Categ. favorita">{stats.favCategory}</StatBox>
+                  <StatBox label="Pachangas creadas">{stats.created}</StatBox>
+                  <StatBox label="Nivel">{user.level}</StatBox>
+                </div>
+                <FontSizeSelector />
               </div>
             )}
           </div>
@@ -324,6 +328,59 @@ function PachangaList({
           />
         );
       })}
+    </div>
+  );
+}
+
+const FONT_OPTIONS = [
+  { value: "normal", label: "Normal", preview: "Aa" },
+  { value: "grande", label: "Grande", preview: "Aa" },
+  { value: "muy-grande", label: "Muy grande", preview: "Aa" },
+] as const;
+
+function FontSizeSelector() {
+  const [current, setCurrent] = useState("normal");
+
+  useEffect(() => {
+    setCurrent(getFontSize());
+  }, []);
+
+  function handleChange(size: string) {
+    setCurrent(size);
+    setFontSize(size);
+  }
+
+  return (
+    <div className="rounded-lg border-[1.5px] border-ink bg-fill p-4">
+      <div className="text-[11px] font-bold uppercase tracking-widest2 text-muted">
+        Tamaño de texto
+      </div>
+      <div className="mt-3 flex gap-2">
+        {FONT_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => handleChange(opt.value)}
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 rounded-lg border-[1.5px] px-3 py-3 transition-all",
+              current === opt.value
+                ? "border-lime-deep bg-lime-soft font-bold"
+                : "border-ink bg-paper",
+            )}
+          >
+            <span
+              className={cn(
+                "font-bold text-ink",
+                opt.value === "normal" && "text-sm",
+                opt.value === "grande" && "text-lg",
+                opt.value === "muy-grande" && "text-xl",
+              )}
+            >
+              {opt.preview}
+            </span>
+            <span className="text-[10px] text-muted">{opt.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
