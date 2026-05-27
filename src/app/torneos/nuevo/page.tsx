@@ -443,6 +443,7 @@ function Step3({
   const [query, setQuery] = useState("");
   const [allUsers, setAllUsers] = useState<PlayerInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     const genderParam =
@@ -463,57 +464,55 @@ function Step3({
 
   return (
     <div className="space-y-6">
-      {/* Search input */}
-      <div>
+      {/* Search input with dropdown */}
+      <div className="relative">
         <label className="block font-sans">
           <span className="text-[11px] font-bold uppercase tracking-widest2 text-muted">
-            Buscar jugadores
+            Añadir jugadores
           </span>
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Nombre del jugador..."
+            onChange={(e) => { setQuery(e.target.value); setDropdownOpen(true); }}
+            onFocus={() => setDropdownOpen(true)}
+            placeholder="Pulsa para ver jugadores..."
             className="mt-1 block w-full rounded-md border-[1.5px] border-ink bg-fill px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-lime focus:ring-offset-1"
           />
         </label>
-      </div>
 
-      {/* Available players */}
-      {loading ? (
-        <p className="text-xs text-muted">Cargando jugadores...</p>
-      ) : results.length > 0 ? (
-        <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
-          {results.map((user) => (
-            <button
-              key={user.id}
-              type="button"
-              onClick={() => addPlayer(user)}
-              className="flex items-center gap-3 rounded-lg border-[1.5px] border-ink bg-fill p-3 text-left transition-all hover:bg-paper-alt"
-            >
-              <Avatar
-                label={user.name.charAt(0).toUpperCase()}
-                size={36}
-              />
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-bold text-ink truncate block">
-                  {user.name}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-muted">
-                  Nivel <LevelBalls value={user.level} size={8} />
-                </span>
-              </div>
-              <span className="text-xs font-semibold text-lime-deep">
-                + Agregar
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-muted">
-          {allUsers.length === 0 ? "No hay jugadores registrados." : "Todos los jugadores ya estan en la lista."}
-        </p>
-      )}
+        {dropdownOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border-[1.5px] border-ink bg-paper shadow-neo">
+              {loading ? (
+                <p className="p-3 text-xs text-muted">Cargando...</p>
+              ) : results.length > 0 ? (
+                results.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => { addPlayer(user); setQuery(""); }}
+                    className="flex w-full items-center gap-3 border-b border-muted/30 p-3 text-left transition-all hover:bg-lime-soft last:border-b-0"
+                  >
+                    <Avatar label={user.name.charAt(0).toUpperCase()} size={32} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-bold text-ink truncate block">{user.name}</span>
+                      <span className="flex items-center gap-1 text-xs text-muted">
+                        Nivel <LevelBalls value={user.level} size={8} />
+                      </span>
+                    </div>
+                    <span className="text-xs font-semibold text-lime-deep">+</span>
+                  </button>
+                ))
+              ) : (
+                <p className="p-3 text-xs text-muted">
+                  {allUsers.length === 0 ? "No hay jugadores registrados." : "Todos ya estan en la lista."}
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Selected players */}
       <div>
