@@ -27,4 +27,5 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d
             sleep 5
             docker compose -f /home/ubuntu/proxy/docker-compose.yml exec -T proxy nginx -s reload
-            docker image prune -f
+            docker image prune -af --filter "until=1h"
+            docker builder prune -af --keep-storage=2GB
