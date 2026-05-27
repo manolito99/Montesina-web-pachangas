@@ -52,7 +52,7 @@ const DAY_NAMES = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"] as const;
 function buildDayOptions(): { label: string; value: string }[] {
   const days: { label: string; value: string }[] = [];
   const now = new Date();
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 8; i++) {
     const d = new Date(now);
     d.setDate(now.getDate() + i);
     const dayName = i === 0 ? "HOY" : i === 1 ? "MAÑANA" : DAY_NAMES[d.getDay()];
