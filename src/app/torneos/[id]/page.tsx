@@ -578,33 +578,23 @@ function MatchRow({
   onSaveScore: (matchId: string, scoreA: number, scoreB: number) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [scoreA, setScoreA] = useState<string>(
-    match.scoreTeamA !== null ? String(match.scoreTeamA) : "",
-  );
-  const [scoreB, setScoreB] = useState<string>(
-    match.scoreTeamB !== null ? String(match.scoreTeamB) : "",
-  );
+  const [scoreA, setScoreA] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
-  const handleScoreAChange = (val: string) => {
-    setScoreA(val);
-    const numA = parseInt(val, 10);
-    if (!isNaN(numA) && numA >= 0 && numA <= pointsPerMatch) {
-      setScoreB(String(pointsPerMatch - numA));
-    } else {
-      setScoreB("");
-    }
-  };
+  const numA = parseInt(scoreA, 10);
+  const scoreB = !isNaN(numA) && numA >= 0 && numA <= pointsPerMatch
+    ? String(pointsPerMatch - numA)
+    : "";
 
   const handleSave = async () => {
-    const numA = parseInt(scoreA, 10);
-    const numB = parseInt(scoreB, 10);
-    if (isNaN(numA) || isNaN(numB) || numA < 0 || numB < 0) {
-      alert("Introduce un resultado valido");
+    const a = parseInt(scoreA, 10);
+    const b = parseInt(scoreB, 10);
+    if (isNaN(a) || isNaN(b) || a < 0 || b < 0 || a + b !== pointsPerMatch) {
+      alert(`Introduce los puntos del equipo A (el equipo B se calcula solo). Deben sumar ${pointsPerMatch}.`);
       return;
     }
     setSaving(true);
-    await onSaveScore(match.id, numA, numB);
+    await onSaveScore(match.id, a, b);
     setSaving(false);
     setEditing(false);
   };
@@ -614,40 +604,18 @@ function MatchRow({
 
   return (
     <div className="px-4 py-3">
+      {/* Teams */}
       <div className="flex items-center gap-3">
-        {/* Team A */}
         <div className="min-w-0 flex-1 text-right">
           <span className="text-sm font-bold text-ink">{teamANames}</span>
         </div>
 
-        {/* Score */}
+        {/* Score display */}
         <div className="flex-shrink-0">
           {match.completed ? (
             <span className="inline-flex items-center gap-1.5 rounded-md border-[1.5px] border-lime-deep bg-lime/10 px-3 py-1 text-sm font-extrabold text-ink">
               {match.scoreTeamA} - {match.scoreTeamB}
             </span>
-          ) : editing ? (
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                min={0}
-                max={pointsPerMatch}
-                value={scoreA}
-                onChange={(e) => handleScoreAChange(e.target.value)}
-                className="w-12 rounded-md border-[1.5px] border-ink bg-paper px-2 py-1 text-center text-sm font-bold text-ink focus:border-lime-deep focus:outline-none"
-                placeholder="0"
-              />
-              <span className="text-xs font-bold text-muted">-</span>
-              <input
-                type="number"
-                min={0}
-                max={pointsPerMatch}
-                value={scoreB}
-                readOnly
-                className="w-12 rounded-md border-[1.5px] border-ink bg-fill px-2 py-1 text-center text-sm font-bold text-muted"
-                placeholder="0"
-              />
-            </div>
           ) : (
             <span className="inline-flex items-center rounded-md border-[1.5px] border-dashed border-muted px-3 py-1 text-sm font-bold text-muted">
               &mdash;
@@ -668,40 +636,51 @@ function MatchRow({
         </span>
       </div>
 
-      {/* Organizer score input controls */}
+      {/* Organizer score entry */}
       {isOrganizer && !match.completed && (
-        <div className="mt-2 flex justify-center gap-2">
+        <div className="mt-3">
           {editing ? (
-            <>
-              <NeoButton
-                size="sm"
-                variant="primary"
-                disabled={saving}
-                onClick={handleSave}
-              >
-                {saving ? "Guardando..." : "Guardar"}
-              </NeoButton>
-              <NeoButton
-                size="sm"
-                variant="ghost"
-                disabled={saving}
-                onClick={() => {
-                  setEditing(false);
-                  setScoreA(match.scoreTeamA !== null ? String(match.scoreTeamA) : "");
-                  setScoreB(match.scoreTeamB !== null ? String(match.scoreTeamB) : "");
-                }}
-              >
-                Cancelar
-              </NeoButton>
-            </>
+            <div className="rounded-lg border-[1.5px] border-lime-deep bg-lime-soft/30 p-3">
+              <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest2 text-muted">
+                Puntos de cada equipo (suman {pointsPerMatch})
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <div className="text-center">
+                  <p className="mb-1 text-[10px] text-muted truncate max-w-[100px]">{match.player1.user.name.split(" ")[0]} / {match.player2.user.name.split(" ")[0]}</p>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={scoreA}
+                    onChange={(e) => setScoreA(e.target.value.replace(/[^0-9]/g, ""))}
+                    className="w-16 rounded-lg border-[2px] border-ink bg-paper px-2 py-2 text-center text-lg font-extrabold text-ink focus:border-lime-deep focus:outline-none"
+                    placeholder="0"
+                    autoFocus
+                  />
+                </div>
+                <span className="mt-4 text-lg font-bold text-muted">-</span>
+                <div className="text-center">
+                  <p className="mb-1 text-[10px] text-muted truncate max-w-[100px]">{match.player3.user.name.split(" ")[0]} / {match.player4.user.name.split(" ")[0]}</p>
+                  <div className="w-16 rounded-lg border-[2px] border-dashed border-muted bg-fill px-2 py-2 text-center text-lg font-extrabold text-muted">
+                    {scoreB || "—"}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex justify-center gap-2">
+                <NeoButton size="sm" variant="primary" disabled={saving || !scoreB} onClick={handleSave}>
+                  {saving ? "Guardando..." : "Guardar resultado"}
+                </NeoButton>
+                <NeoButton size="sm" variant="ghost" disabled={saving} onClick={() => { setEditing(false); setScoreA(""); }}>
+                  Cancelar
+                </NeoButton>
+              </div>
+            </div>
           ) : (
-            <NeoButton
-              size="sm"
-              variant="ghost"
-              onClick={() => setEditing(true)}
-            >
-              Anotar resultado
-            </NeoButton>
+            <div className="flex justify-center">
+              <NeoButton size="sm" variant="ghost" onClick={() => setEditing(true)}>
+                Anotar resultado
+              </NeoButton>
+            </div>
           )}
         </div>
       )}
