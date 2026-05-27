@@ -61,14 +61,30 @@ const CATEGORY_META: Record<Category, { label: string; desc: string }> = {
   X: { label: "Mixto", desc: "Hombres y mujeres" },
 };
 
-const FORMAT_META: Record<Format, { label: string; desc: string }> = {
+const FORMAT_META: Record<Format, { label: string; desc: string; howItWorks: string[] }> = {
   AMERICANO: {
     label: "Americano",
     desc: "Parejas rotativas, todos contra todos",
+    howItWorks: [
+      "Cada ronda juegas con un compañero diferente",
+      "Las parejas se asignan para que todos jueguen con todos",
+      "Cada punto ganado suma a tu marcador individual",
+      "Si tu equipo gana 14-7, tu sumas 14 puntos",
+      "Gana quien mas puntos acumule al final",
+      "Ideal para conocerse y socializar en el club",
+    ],
   },
   MEXICANO: {
     label: "Mexicano",
     desc: "Parejas por nivel tras cada ronda",
+    howItWorks: [
+      "La primera ronda es aleatoria como el Americano",
+      "A partir de la ronda 2, se emparejan por ranking",
+      "Los mejores juegan juntos contra los siguientes mejores",
+      "Los partidos se van equilibrando automaticamente",
+      "Misma puntuacion individual que el Americano",
+      "Ideal para grupos con niveles diferentes",
+    ],
   },
 };
 
@@ -193,6 +209,23 @@ function Step1({
           })}
         </div>
       </div>
+
+      {/* Format explanation */}
+      {format && (
+        <div className="rounded-lg border-[1.5px] border-dashed border-lime-deep bg-lime-soft/30 p-4">
+          <p className="text-xs font-bold uppercase tracking-widest2 text-lime-deep">
+            Como funciona el {FORMAT_META[format].label}
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {FORMAT_META[format].howItWorks.map((line, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-ink-2">
+                <span className="mt-0.5 text-xs text-lime-deep">●</span>
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Category selection */}
       <div>
