@@ -213,6 +213,9 @@ function FilterSidebar({
 }
 
 function PachangaGrid({ items, loading }: { items: ReturnType<typeof formatPachanga>[]; loading: boolean }) {
+  const activas = items.filter((p) => p.filled < p.max);
+  const completas = items.filter((p) => p.filled >= p.max);
+
   return (
     <div className="bg-paper p-4 md:p-5">
       {/* Mobile: title + filter toggle */}
@@ -228,26 +231,62 @@ function PachangaGrid({ items, loading }: { items: ReturnType<typeof formatPacha
       ) : items.length === 0 ? (
         <div className="py-16 text-center">
           <p className="text-lg font-bold text-ink">Sin pachangas</p>
-          <p className="mt-1 font-hand text-sm text-muted">Sé el primero en crear una</p>
+          <p className="mt-1 font-hand text-sm text-muted">Se el primero en crear una</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((p) => (
-            <PachangaCard
-              key={p.id}
-              cat={p.cat}
-              date={p.date}
-              time={p.time}
-              pista={p.pista}
-              nivel={p.nivel}
-              filled={p.filled}
-              max={p.max}
-              organizer={p.organizer}
-              price={p.price}
-              accent={p.accent}
-              href={`/pachangas/${p.id}`}
-            />
-          ))}
+        <div className="space-y-8">
+          {activas.length > 0 && (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-bold text-ink">Pachangas activas</h2>
+                <span className="rounded-full bg-lime px-2 py-0.5 text-[10px] font-bold text-ink">{activas.length}</span>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {activas.map((p) => (
+                  <PachangaCard
+                    key={p.id}
+                    cat={p.cat}
+                    date={p.date}
+                    time={p.time}
+                    pista={p.pista}
+                    nivel={p.nivel}
+                    filled={p.filled}
+                    max={p.max}
+                    organizer={p.organizer}
+                    price={p.price}
+                    accent={p.accent}
+                    href={`/pachangas/${p.id}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {completas.length > 0 && (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-bold text-muted">Pachangas completas</h2>
+                <span className="rounded-full bg-fill-alt px-2 py-0.5 text-[10px] font-bold text-muted">{completas.length}</span>
+              </div>
+              <div className="grid gap-4 opacity-75 md:grid-cols-2 lg:grid-cols-3">
+                {completas.map((p) => (
+                  <PachangaCard
+                    key={p.id}
+                    cat={p.cat}
+                    date={p.date}
+                    time={p.time}
+                    pista={p.pista}
+                    nivel={p.nivel}
+                    filled={p.filled}
+                    max={p.max}
+                    organizer={p.organizer}
+                    price={p.price}
+                    href={`/pachangas/${p.id}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
