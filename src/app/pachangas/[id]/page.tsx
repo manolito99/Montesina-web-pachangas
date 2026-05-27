@@ -697,6 +697,9 @@ function ShareBar({ data, plazasLibres }: { data: PachangaData; plazasLibres: nu
         >
           WhatsApp
         </NeoButton>
+        <NeoButton size="sm" variant="ghost" onClick={() => downloadCalendarEvent(data)}>
+          Calendario
+        </NeoButton>
         {typeof navigator !== "undefined" && "share" in navigator && (
           <NeoButton size="sm" variant="ghost" onClick={handleNativeShare}>
             Compartir...
@@ -705,6 +708,43 @@ function ShareBar({ data, plazasLibres }: { data: PachangaData; plazasLibres: nu
       </div>
     </div>
   );
+}
+
+function downloadCalendarEvent(data: PachangaData) {
+  const catName = { M: "Masculino", F: "Femenino", X: "Mixto" }[data.category] || data.category;
+  const start = new Date(data.date);
+  const end = new Date(start.getTime() + data.duration * 60 * 1000);
+
+  const fmt = (d: Date) =>
+    d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Montesina Padel//ES",
+    "BEGIN:VEVENT",
+    `DTSTART:${fmt(start)}`,
+    `DTEND:${fmt(end)}`,
+    `SUMMARY:Pachanga ${catName} - ${data.court.name}`,
+    `DESCRIPTION:Pachanga de padel ${catName.toLowerCase()} en ${data.court.name}. ${data.maxPlayers} jugadores. ${data.price}€/jugador.`,
+    `LOCATION:${data.court.name}`,
+    `URL:${typeof window !== "undefined" ? `${window.location.origin}/pachangas/${data.id}` : ""}`,
+    "BEGIN:VALARM",
+    "TRIGGER:-PT60M",
+    "ACTION:DISPLAY",
+    "DESCRIPTION:Tu pachanga empieza en 1 hora",
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pachanga-${data.id.slice(0, 6)}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /* ──────────────────────────────────────────────
