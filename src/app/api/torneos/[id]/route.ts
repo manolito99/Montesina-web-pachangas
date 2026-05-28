@@ -86,6 +86,14 @@ export async function DELETE(
     return NextResponse.json({ error: "No se puede eliminar un torneo en curso o finalizado" }, { status: 400 });
   }
 
+  // Borrar en orden: matches → rounds → players → tournament
+  // (TournamentMatch referencia a TournamentPlayer sin cascade, hay que hacerlo a mano)
+  await db.tournamentMatch.deleteMany({
+    where: { round: { tournamentId: params.id } },
+  });
+  await db.tournamentRound.deleteMany({ where: { tournamentId: params.id } });
+  await db.tournamentPlayer.deleteMany({ where: { tournamentId: params.id } });
   await db.tournament.delete({ where: { id: params.id } });
+
   return NextResponse.json({ success: true });
 }
