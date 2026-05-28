@@ -2,13 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-
-const ADMIN_EMAIL = "nolomanolo990@gmail.com";
+import { isAdmin } from "@/lib/admin";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
-  if (email !== ADMIN_EMAIL) {
+  if (!isAdmin(session?.user?.email)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

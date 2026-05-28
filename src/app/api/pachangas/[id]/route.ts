@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendPushToParticipants } from "@/lib/services/push";
+import { isAdmin } from "@/lib/admin";
 
 export async function GET(
   _req: NextRequest,
@@ -39,6 +40,7 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as { id?: string })?.id;
+  const userEmail = session?.user?.email;
   if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
@@ -52,7 +54,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (pachanga.organizerId !== userId) {
+  if (!isAdmin(userEmail) && pachanga.organizerId !== userId) {
     return NextResponse.json({ error: "Solo el creador puede eliminar la pachanga" }, { status: 403 });
   }
 

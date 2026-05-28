@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isAdmin } from "@/lib/admin";
 
 export async function GET(
   _req: NextRequest,
@@ -66,6 +67,7 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as { id?: string })?.id;
+  const userEmail = session?.user?.email;
   if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
@@ -74,10 +76,13 @@ export async function DELETE(
   if (!tournament) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (tournament.organizerId !== userId) {
+
+  const admin = isAdmin(userEmail);
+
+  if (!admin && tournament.organizerId !== userId) {
     return NextResponse.json({ error: "Solo el organizador puede eliminar" }, { status: 403 });
   }
-  if (tournament.status === "IN_PROGRESS" || tournament.status === "FINISHED") {
+  if (!admin && (tournament.status === "IN_PROGRESS" || tournament.status === "FINISHED")) {
     return NextResponse.json({ error: "No se puede eliminar un torneo en curso o finalizado" }, { status: 400 });
   }
 

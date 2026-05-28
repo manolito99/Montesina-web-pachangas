@@ -14,6 +14,7 @@ import { NeoButton } from "@/components/ui/neo-button";
 import { NeoCard } from "@/components/ui/neo-card";
 import { StatBox } from "@/components/ui/stat-box";
 import { cn } from "@/lib/utils";
+import { isAdmin } from "@/lib/admin";
 
 /* ──────────────────────────────────────────────
    Types (match API response shape)
@@ -161,6 +162,22 @@ export default function TournamentDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm("Eliminar este torneo? Esta accion no se puede deshacer.")) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/torneos/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "No se pudo eliminar el torneo");
+        return;
+      }
+      window.location.href = "/torneos";
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleSaveScore = async (matchId: string, scoreA: number, scoreB: number) => {
     try {
       const res = await fetch(`/api/torneos/${id}/matches/${matchId}`, {
@@ -222,7 +239,9 @@ export default function TournamentDetailPage() {
   }
 
   /* ── Derived values ── */
+  const userIsAdmin = isAdmin(session?.user?.email);
   const isOrganizer = currentUserId === data.organizerId;
+  const canManage = isOrganizer || userIsAdmin;
   const currentRoundData = data.rounds.find((r) => r.roundNumber === data.currentRound);
   const allCurrentMatchesCompleted = currentRoundData
     ? currentRoundData.matches.every((m) => m.completed)
@@ -269,11 +288,13 @@ export default function TournamentDetailPage() {
             <TournamentSidebar
               data={data}
               isOrganizer={isOrganizer}
+              canManage={canManage}
               actionLoading={actionLoading}
               allCurrentMatchesCompleted={allCurrentMatchesCompleted}
               onStart={handleStart}
               onGenerateRound={handleGenerateRound}
               onFinish={handleFinish}
+              onDelete={handleDelete}
             />
           </aside>
         </div>
@@ -292,6 +313,15 @@ export default function TournamentDetailPage() {
           <div className="mt-4">
             <PlayerListSection players={data.players} />
           </div>
+          {canManage && (
+            <button
+              onClick={handleDelete}
+              disabled={actionLoading}
+              className="mt-4 text-xs font-semibold text-rose-600 underline hover:text-rose-800 disabled:opacity-50"
+            >
+              Eliminar torneo
+            </button>
+          )}
         </div>
       </main>
 
@@ -695,19 +725,23 @@ function MatchRow({
 function TournamentSidebar({
   data,
   isOrganizer,
+  canManage,
   actionLoading,
   allCurrentMatchesCompleted,
   onStart,
   onGenerateRound,
   onFinish,
+  onDelete,
 }: {
   data: TournamentData;
   isOrganizer: boolean;
+  canManage: boolean;
   actionLoading: boolean;
   allCurrentMatchesCompleted: boolean;
   onStart: () => void;
   onGenerateRound: () => void;
   onFinish: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="flex flex-col divide-y-[1.5px] divide-ink">
@@ -721,6 +755,17 @@ function TournamentSidebar({
         onFinish={onFinish}
       />
       <PlayerListSection players={data.players} />
+      {canManage && (
+        <div className="p-4">
+          <button
+            onClick={onDelete}
+            disabled={actionLoading}
+            className="text-xs font-semibold text-rose-600 underline hover:text-rose-800 disabled:opacity-50"
+          >
+            Eliminar torneo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
