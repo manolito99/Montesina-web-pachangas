@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 /* ------------------------------------------------------------------ */
 
 type Category = "M" | "F" | "X";
-type Format = "AMERICANO" | "MEXICANO";
+type Format = "AMERICANO" | "MEXICANO" | "PERSONALIZADO";
 
 interface PlayerInfo {
   id: string;
@@ -47,6 +47,7 @@ interface WizardState {
   category: Category | null;
   name: string;
   pointsPerMatch: 21 | 24 | 32;
+  matchDurationMin: number | null;
   courtIds: string[];
   notes: string;
   playerIds: string[];
@@ -89,6 +90,18 @@ const FORMAT_META: Record<Format, { label: string; desc: string; howItWorks: str
       "Los partidos se van equilibrando automaticamente",
       "Misma puntuacion individual que el Americano",
       "Ideal para grupos con niveles diferentes",
+    ],
+  },
+  PERSONALIZADO: {
+    label: "Personalizado",
+    desc: "Puntuación libre, pistas variables, timer",
+    howItWorks: [
+      "Puntuación libre por juegos ganados (5-3, 6-4, etc.)",
+      "Las pistas se eligen al generar cada ronda",
+      "Timer opcional por partido (ej: 20 min)",
+      "Parejas aleatorias estilo Americano",
+      "Gana quien más juegos acumule al final",
+      "Ideal para torneos por tiempo y formato libre",
     ],
   },
 };
@@ -181,8 +194,8 @@ function Step1({
         <p className="mb-4 text-center text-sm font-semibold text-ink-2">
           Elige el formato del torneo
         </p>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {(["AMERICANO", "MEXICANO"] as const).map((f) => {
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {(["AMERICANO", "MEXICANO", "PERSONALIZADO"] as const).map((f) => {
             const selected = format === f;
             const meta = FORMAT_META[f];
             return (
@@ -203,7 +216,7 @@ function Step1({
                   </span>
                 )}
                 <span className="text-2xl font-extrabold text-ink">
-                  {f === "AMERICANO" ? "🏆" : "🌶️"}
+                  {f === "AMERICANO" ? "🏆" : f === "MEXICANO" ? "🌶️" : "⚙️"}
                 </span>
                 <span className="text-base font-bold text-ink">
                   {meta.label}
@@ -275,26 +288,33 @@ function Step1({
 /* ------------------------------------------------------------------ */
 
 function Step2({
+  format,
   name,
   setName,
   pointsPerMatch,
   setPointsPerMatch,
+  matchDurationMin,
+  setMatchDurationMin,
   courtIds,
   toggleCourt,
   notes,
   setNotes,
   courts,
 }: {
+  format: Format | null;
   name: string;
   setName: (v: string) => void;
   pointsPerMatch: 21 | 24 | 32;
   setPointsPerMatch: (v: 21 | 24 | 32) => void;
+  matchDurationMin: number | null;
+  setMatchDurationMin: (v: number | null) => void;
   courtIds: string[];
   toggleCourt: (id: string) => void;
   notes: string;
   setNotes: (v: string) => void;
   courts: CourtFromApi[];
 }) {
+  const isPersonalizado = format === "PERSONALIZADO";
   const clubCourts = courts.filter((c) => c.isClub);
   const customCourts = courts.filter((c) => !c.isClub);
 
@@ -316,29 +336,69 @@ function Step2({
         </label>
       </div>
 
-      {/* Points per match */}
-      <div>
-        <p className="mb-2 text-sm font-semibold text-ink-2">
-          Puntos por partido
-        </p>
-        <div className="flex gap-2">
-          {POINTS_OPTIONS.map((pts) => (
-            <button
-              key={pts}
-              type="button"
-              onClick={() => setPointsPerMatch(pts)}
-              className={cn(
-                "rounded-full border-[1.5px] px-4 py-1.5 text-xs font-semibold transition-all",
-                pointsPerMatch === pts
-                  ? "border-lime-deep bg-lime text-ink"
-                  : "border-ink bg-fill text-ink hover:bg-paper-alt",
-              )}
-            >
-              {pts} pts
-            </button>
-          ))}
+      {/* Points per match (only for non-personalizado) */}
+      {!isPersonalizado && (
+        <div>
+          <p className="mb-2 text-sm font-semibold text-ink-2">
+            Puntos por partido
+          </p>
+          <div className="flex gap-2">
+            {POINTS_OPTIONS.map((pts) => (
+              <button
+                key={pts}
+                type="button"
+                onClick={() => setPointsPerMatch(pts)}
+                className={cn(
+                  "rounded-full border-[1.5px] px-4 py-1.5 text-xs font-semibold transition-all",
+                  pointsPerMatch === pts
+                    ? "border-lime-deep bg-lime text-ink"
+                    : "border-ink bg-fill text-ink hover:bg-paper-alt",
+                )}
+              >
+                {pts} pts
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Match duration timer (only for personalizado) */}
+      {isPersonalizado && (
+        <div>
+          <p className="mb-2 text-sm font-semibold text-ink-2">
+            Duración por partido (timer)
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              max={120}
+              value={matchDurationMin ?? ""}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setMatchDurationMin(isNaN(v) ? null : v);
+              }}
+              placeholder="20"
+              className="w-20 rounded-md border-[1.5px] border-ink bg-fill px-3 py-2 text-sm text-ink"
+            />
+            <span className="text-sm text-muted">minutos por partido</span>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            Cuando inicies un partido aparecerá un contador. Deja vacío para no usar timer.
+          </p>
+        </div>
+      )}
+
+      {/* Free scoring info for personalizado */}
+      {isPersonalizado && (
+        <div className="rounded-lg border-[1.5px] border-dashed border-lime-deep bg-lime-soft/30 p-3">
+          <p className="text-xs font-bold text-lime-deep">📝 Puntuación libre</p>
+          <p className="mt-1 text-xs text-ink-2">
+            Podras meter cualquier resultado (5-3, 6-4, 7-5, etc). Quien mas juegos gane, gana el torneo.
+            El numero de pistas para cada ronda se elige al generarla.
+          </p>
+        </div>
+      )}
 
       {/* Courts multi-select */}
       <div>
@@ -817,6 +877,7 @@ export default function NuevoTorneoPage() {
     playerIds: [],
     players: [],
     guests: [],
+    matchDurationMin: null,
   });
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
@@ -937,6 +998,7 @@ export default function NuevoTorneoPage() {
           notes: state.notes.trim() || null,
           playerIds: state.playerIds,
           guests: state.guests,
+          matchDurationMin: state.matchDurationMin,
         }),
       });
 
@@ -992,7 +1054,7 @@ export default function NuevoTorneoPage() {
           {state.step === 1 && (
             <Step1
               format={state.format}
-              setFormat={(f) => patch({ format: f })}
+              setFormat={(f) => patch({ format: f, matchDurationMin: f === "PERSONALIZADO" ? 20 : null })}
               category={state.category}
               setCategory={(c) => patch({ category: c })}
               userGender={userGender}
@@ -1000,10 +1062,13 @@ export default function NuevoTorneoPage() {
           )}
           {state.step === 2 && (
             <Step2
+              format={state.format}
               name={state.name}
               setName={(v) => patch({ name: v })}
               pointsPerMatch={state.pointsPerMatch}
               setPointsPerMatch={(v) => patch({ pointsPerMatch: v })}
+              matchDurationMin={state.matchDurationMin}
+              setMatchDurationMin={(v) => patch({ matchDurationMin: v })}
               courtIds={state.courtIds}
               toggleCourt={toggleCourt}
               notes={state.notes}

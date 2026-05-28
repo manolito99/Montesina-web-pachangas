@@ -114,12 +114,11 @@ export function validateScores(
   scoreA: number,
   scoreB: number,
   pointsPerMatch: number,
+  freeScoring = false,
 ): boolean {
-  return (
-    Number.isInteger(scoreA) &&
-    Number.isInteger(scoreB) &&
-    scoreA >= 0 &&
-    scoreB >= 0 &&
-    scoreA + scoreB === pointsPerMatch
-  );
+  if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) {
+    return false;
+  }
+  if (freeScoring) return true;
+  return scoreA + scoreB === pointsPerMatch;
 }

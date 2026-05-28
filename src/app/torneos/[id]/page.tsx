@@ -23,10 +23,12 @@ import { isAdmin } from "@/lib/admin";
 interface TournamentData {
   id: string;
   name: string;
-  format: "AMERICANO" | "MEXICANO";
+  format: "AMERICANO" | "MEXICANO" | "PERSONALIZADO";
   category: "M" | "F" | "X";
   status: "DRAFT" | "OPEN" | "IN_PROGRESS" | "FINISHED";
   pointsPerMatch: number;
+  freeScoring: boolean;
+  matchDurationMin: number | null;
   courtIds: string[];
   currentRound: number;
   organizerId: string;
@@ -116,10 +118,30 @@ export default function TournamentDetailPage() {
   }, [fetchTournament]);
 
   /* ── Organizer actions ── */
+  const promptNumCourts = (defaultN: number): number | null => {
+    const input = window.prompt("¿Cuántas pistas para esta ronda? (1-20)", String(defaultN));
+    if (input === null) return null;
+    const n = parseInt(input, 10);
+    if (isNaN(n) || n < 1 || n > 20) {
+      alert("Numero invalido");
+      return null;
+    }
+    return n;
+  };
+
   const handleStart = async () => {
+    if (!data) return;
+    const isCustom = data.format === "PERSONALIZADO";
+    const defaultCourts = data.courtIds.length || 1;
+    const numCourts = isCustom ? promptNumCourts(defaultCourts) : defaultCourts;
+    if (numCourts === null) return;
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/torneos/${id}/start`, { method: "POST" });
+      const res = await fetch(`/api/torneos/${id}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numCourts }),
+      });
       if (!res.ok) {
         const err = await res.json();
         alert(err.error || "No se pudo iniciar el torneo");
@@ -132,9 +154,18 @@ export default function TournamentDetailPage() {
   };
 
   const handleGenerateRound = async () => {
+    if (!data) return;
+    const isCustom = data.format === "PERSONALIZADO";
+    const defaultCourts = data.courtIds.length || 1;
+    const numCourts = isCustom ? promptNumCourts(defaultCourts) : defaultCourts;
+    if (numCourts === null) return;
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/torneos/${id}/rounds/generate`, { method: "POST" });
+      const res = await fetch(`/api/torneos/${id}/rounds/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numCourts }),
+      });
       if (!res.ok) {
         const err = await res.json();
         alert(err.error || "No se pudo generar la siguiente ronda");
@@ -423,6 +454,8 @@ function TournamentMainContent({
         <RoundsTab
           rounds={data.rounds}
           pointsPerMatch={data.pointsPerMatch}
+          freeScoring={data.freeScoring}
+          matchDurationMin={data.matchDurationMin}
           isOrganizer={isOrganizer}
           onSaveScore={onSaveScore}
         />
@@ -526,11 +559,15 @@ function LeaderboardTab({
 function RoundsTab({
   rounds,
   pointsPerMatch,
+  freeScoring,
+  matchDurationMin,
   isOrganizer,
   onSaveScore,
 }: {
   rounds: TournamentData["rounds"];
   pointsPerMatch: number;
+  freeScoring: boolean;
+  matchDurationMin: number | null;
   isOrganizer: boolean;
   onSaveScore: (matchId: string, scoreA: number, scoreB: number) => Promise<void>;
 }) {
@@ -580,6 +617,8 @@ function RoundsTab({
                   key={match.id}
                   match={match}
                   pointsPerMatch={pointsPerMatch}
+                  freeScoring={freeScoring}
+                  matchDurationMin={matchDurationMin}
                   isOrganizer={isOrganizer}
                   onSaveScore={onSaveScore}
                 />
@@ -599,28 +638,39 @@ function RoundsTab({
 function MatchRow({
   match,
   pointsPerMatch,
+  freeScoring,
+  matchDurationMin,
   isOrganizer,
   onSaveScore,
 }: {
   match: TournamentData["rounds"][number]["matches"][number];
   pointsPerMatch: number;
+  freeScoring: boolean;
+  matchDurationMin: number | null;
   isOrganizer: boolean;
   onSaveScore: (matchId: string, scoreA: number, scoreB: number) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [scoreA, setScoreA] = useState<string>("");
+  const [scoreBFree, setScoreBFree] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
+  // For non-free scoring, scoreB is auto-calculated
   const numA = parseInt(scoreA, 10);
-  const scoreB = !isNaN(numA) && numA >= 0 && numA <= pointsPerMatch
+  const scoreBAuto = !isNaN(numA) && numA >= 0 && numA <= pointsPerMatch
     ? String(pointsPerMatch - numA)
     : "";
+  const scoreB = freeScoring ? scoreBFree : scoreBAuto;
 
   const handleSave = async () => {
     const a = parseInt(scoreA, 10);
     const b = parseInt(scoreB, 10);
-    if (isNaN(a) || isNaN(b) || a < 0 || b < 0 || a + b !== pointsPerMatch) {
-      alert(`Introduce los puntos del equipo A (el equipo B se calcula solo). Deben sumar ${pointsPerMatch}.`);
+    if (isNaN(a) || isNaN(b) || a < 0 || b < 0) {
+      alert("Introduce numeros validos para ambos equipos");
+      return;
+    }
+    if (!freeScoring && a + b !== pointsPerMatch) {
+      alert(`Los puntos deben sumar ${pointsPerMatch}`);
       return;
     }
     setSaving(true);
@@ -672,7 +722,7 @@ function MatchRow({
           {editing ? (
             <div className="rounded-lg border-[1.5px] border-lime-deep bg-lime-soft/30 p-3">
               <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest2 text-muted">
-                Puntos de cada equipo (suman {pointsPerMatch})
+                {freeScoring ? "Juegos ganados por cada equipo" : `Puntos de cada equipo (suman ${pointsPerMatch})`}
               </p>
               <div className="flex items-center justify-center gap-2">
                 <div className="text-center">
@@ -691,22 +741,35 @@ function MatchRow({
                 <span className="mt-4 text-lg font-bold text-muted">-</span>
                 <div className="text-center">
                   <p className="mb-1 text-[10px] text-muted truncate max-w-[100px]">{match.player3.user.name.split(" ")[0]} / {match.player4.user.name.split(" ")[0]}</p>
-                  <div className="w-16 rounded-lg border-[2px] border-dashed border-muted bg-fill px-2 py-2 text-center text-lg font-extrabold text-muted">
-                    {scoreB || "—"}
-                  </div>
+                  {freeScoring ? (
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={scoreBFree}
+                      onChange={(e) => setScoreBFree(e.target.value.replace(/[^0-9]/g, ""))}
+                      className="w-16 rounded-lg border-[2px] border-ink bg-paper px-2 py-2 text-center text-lg font-extrabold text-ink focus:border-lime-deep focus:outline-none"
+                      placeholder="0"
+                    />
+                  ) : (
+                    <div className="w-16 rounded-lg border-[2px] border-dashed border-muted bg-fill px-2 py-2 text-center text-lg font-extrabold text-muted">
+                      {scoreB || "—"}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="mt-3 flex justify-center gap-2">
-                <NeoButton size="sm" variant="primary" disabled={saving || !scoreB} onClick={handleSave}>
+                <NeoButton size="sm" variant="primary" disabled={saving || !scoreA || !scoreB} onClick={handleSave}>
                   {saving ? "Guardando..." : "Guardar resultado"}
                 </NeoButton>
-                <NeoButton size="sm" variant="ghost" disabled={saving} onClick={() => { setEditing(false); setScoreA(""); }}>
+                <NeoButton size="sm" variant="ghost" disabled={saving} onClick={() => { setEditing(false); setScoreA(""); setScoreBFree(""); }}>
                   Cancelar
                 </NeoButton>
               </div>
             </div>
           ) : (
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-2">
+              {matchDurationMin && <MatchTimer matchId={match.id} durationMin={matchDurationMin} />}
               <NeoButton size="sm" variant="ghost" onClick={() => setEditing(true)}>
                 Anotar resultado
               </NeoButton>
@@ -879,6 +942,79 @@ function PlayerListSection({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* Match timer (localStorage-backed countdown) */
+function MatchTimer({ matchId, durationMin }: { matchId: string; durationMin: number }) {
+  const STORAGE_KEY = `match-timer-${matchId}`;
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) setStartedAt(parseInt(saved, 10));
+  }, [STORAGE_KEY]);
+
+  useEffect(() => {
+    if (!startedAt) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [startedAt]);
+
+  function start() {
+    const ts = Date.now();
+    localStorage.setItem(STORAGE_KEY, String(ts));
+    setStartedAt(ts);
+    setNow(ts);
+  }
+
+  function reset() {
+    localStorage.removeItem(STORAGE_KEY);
+    setStartedAt(null);
+  }
+
+  if (!startedAt) {
+    return (
+      <button
+        type="button"
+        onClick={start}
+        className="inline-flex items-center gap-1 rounded-full border-[1.5px] border-ink bg-fill px-3 py-1 text-xs font-bold text-ink hover:bg-paper-alt"
+      >
+        Iniciar timer ({durationMin}min)
+      </button>
+    );
+  }
+
+  const elapsedMs = now - startedAt;
+  const totalMs = durationMin * 60 * 1000;
+  const remainingMs = totalMs - elapsedMs;
+  const expired = remainingMs <= 0;
+  const absMs = Math.abs(remainingMs);
+  const mins = Math.floor(absMs / 60000);
+  const secs = Math.floor((absMs % 60000) / 1000);
+  const display = (expired ? "+" : "") + mins + ":" + String(secs).padStart(2, "0");
+
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border-[1.5px] px-3 py-1 text-xs font-bold tabular-nums",
+          expired
+            ? "border-rose-600 bg-rose-100 text-rose-700 animate-pulse"
+            : "border-lime-deep bg-lime-soft text-ink"
+        )}
+      >
+        {display}
+      </span>
+      <button
+        type="button"
+        onClick={reset}
+        className="text-[10px] text-muted underline hover:text-ink"
+      >
+        reset
+      </button>
     </div>
   );
 }

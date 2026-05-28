@@ -27,9 +27,11 @@ export async function PUT(
 
   const { scoreTeamA, scoreTeamB } = await req.json();
 
-  if (!validateScores(scoreTeamA, scoreTeamB, tournament.pointsPerMatch)) {
+  if (!validateScores(scoreTeamA, scoreTeamB, tournament.pointsPerMatch, tournament.freeScoring)) {
     return NextResponse.json({
-      error: `Los puntos deben sumar ${tournament.pointsPerMatch}`,
+      error: tournament.freeScoring
+        ? "Los resultados deben ser numeros enteros >= 0"
+        : `Los puntos deben sumar ${tournament.pointsPerMatch}`,
     }, { status: 400 });
   }
 

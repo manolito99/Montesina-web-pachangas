@@ -226,6 +226,7 @@ model PushSubscription {
 enum TournamentFormat {
   AMERICANO
   MEXICANO
+  PERSONALIZADO
 }
 
 enum TournamentStatus {
@@ -242,6 +243,8 @@ model Tournament {
   category       Category
   status         TournamentStatus @default(DRAFT)
   pointsPerMatch Int              @default(21) @map("points_per_match")
+  freeScoring    Boolean          @default(false) @map("free_scoring")
+  matchDurationMin Int?           @map("match_duration_min")
   courtIds       String[]         @map("court_ids")
   notes          String?
 

@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { generateAmericanoRound, generateMexicanoRound } from "@/lib/tournament-logic";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
   const session = await getServerSession(authOptions);
@@ -41,11 +41,20 @@ export async function POST(
   }
 
   const nextRoundNumber = tournament.currentRound + 1;
-  const numCourts = tournament.courtIds.length || 1;
+  let requestedCourts: number | null = null;
+  try {
+    const body = await req.json();
+    if (typeof body?.numCourts === "number" && body.numCourts >= 1 && body.numCourts <= 20) {
+      requestedCourts = body.numCourts;
+    }
+  } catch { /* no body */ }
+  const numCourts = requestedCourts ?? (tournament.courtIds.length || 1);
   const players = tournament.players.map((p) => ({ id: p.id, totalPoints: p.totalPoints }));
 
   let result;
-  if (tournament.format === "AMERICANO") {
+  if (tournament.format === "MEXICANO") {
+    result = generateMexicanoRound(players, nextRoundNumber, numCourts);
+  } else {
     // Build partner history from all previous rounds
     const allRounds = await db.tournamentRound.findMany({
       where: { tournamentId: params.id },
@@ -65,8 +74,6 @@ export async function POST(
       }
     }
     result = generateAmericanoRound(players, partnerHistory, numCourts);
-  } else {
-    result = generateMexicanoRound(players, nextRoundNumber, numCourts);
   }
 
   if (result.matches.length === 0) {

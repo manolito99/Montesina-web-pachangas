@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { generateAmericanoRound, generateMexicanoRound } from "@/lib/tournament-logic";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } },
 ) {
   const session = await getServerSession(authOptions);
@@ -32,12 +32,19 @@ export async function POST(
     return NextResponse.json({ error: "Se necesitan al menos 4 jugadores" }, { status: 400 });
   }
 
-  const numCourts = tournament.courtIds.length || 1;
+  let requestedCourts: number | null = null;
+  try {
+    const body = await req.json();
+    if (typeof body?.numCourts === "number" && body.numCourts >= 1 && body.numCourts <= 20) {
+      requestedCourts = body.numCourts;
+    }
+  } catch { /* no body, use default */ }
+  const numCourts = requestedCourts ?? (tournament.courtIds.length || 1);
   const players = tournament.players.map((p) => ({ id: p.id, totalPoints: 0 }));
 
-  const result = tournament.format === "AMERICANO"
-    ? generateAmericanoRound(players, new Map(), numCourts)
-    : generateMexicanoRound(players, 1, numCourts);
+  const result = tournament.format === "MEXICANO"
+    ? generateMexicanoRound(players, 1, numCourts)
+    : generateAmericanoRound(players, new Map(), numCourts);
 
   const round = await db.tournamentRound.create({
     data: {

@@ -23,13 +23,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, format, category, pointsPerMatch = 21, courtIds = [], notes, playerIds = [], guests = [] } = body;
+  const { name, format, category, pointsPerMatch = 21, courtIds = [], notes, playerIds = [], guests = [], freeScoring = false, matchDurationMin = null } = body;
 
   if (!name || !format || !category) {
     return NextResponse.json({ error: "name, format y category son obligatorios" }, { status: 400 });
   }
 
-  if (!["AMERICANO", "MEXICANO"].includes(format)) {
+  if (!["AMERICANO", "MEXICANO", "PERSONALIZADO"].includes(format)) {
     return NextResponse.json({ error: "Formato inválido" }, { status: 400 });
   }
 
@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
       format,
       category,
       pointsPerMatch,
+      freeScoring: format === "PERSONALIZADO" ? true : freeScoring,
+      matchDurationMin: matchDurationMin ? Math.max(1, Math.min(180, parseInt(String(matchDurationMin), 10))) : null,
       courtIds,
       notes: notes || null,
       status: (playerIds.length + guests.length) > 0 ? "OPEN" : "DRAFT",
