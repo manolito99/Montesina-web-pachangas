@@ -30,7 +30,6 @@ interface PlayerInfo {
 
 interface GuestPlayer {
   name: string;
-  level: number;
 }
 
 interface CourtFromApi {
@@ -628,9 +627,7 @@ function Step3({
               <Avatar label={g.name.charAt(0).toUpperCase()} size={36} />
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-bold text-ink truncate block">{g.name}</span>
-                <span className="flex items-center gap-1 text-xs text-muted">
-                  Externo · Nivel <LevelBalls value={g.level} size={8} />
-                </span>
+                <span className="text-xs text-muted">Externo</span>
               </div>
               <button
                 type="button"
@@ -651,13 +648,11 @@ function Step3({
 function GuestPlayerForm({ onAdd }: { onAdd: (g: GuestPlayer) => void }) {
   const [showing, setShowing] = useState(false);
   const [name, setName] = useState("");
-  const [level, setLevel] = useState(3);
 
   function handleAdd() {
     if (name.trim().length === 0) return;
-    onAdd({ name: name.trim(), level });
+    onAdd({ name: name.trim() });
     setName("");
-    setLevel(3);
     setShowing(false);
   }
 
@@ -682,16 +677,11 @@ function GuestPlayerForm({ onAdd }: { onAdd: (g: GuestPlayer) => void }) {
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
         placeholder="Nombre del jugador"
         className="block w-full rounded-md border-[1.5px] border-ink bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-lime"
         autoFocus
       />
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-muted">Nivel:</span>
-        <button type="button" onClick={() => setLevel(Math.max(1, level - 1))} className="flex h-6 w-6 items-center justify-center rounded-full border-[1.2px] border-ink bg-fill text-xs font-bold">-</button>
-        <LevelBalls value={level} size={12} />
-        <button type="button" onClick={() => setLevel(Math.min(5, level + 1))} className="flex h-6 w-6 items-center justify-center rounded-full border-[1.2px] border-ink bg-fill text-xs font-bold">+</button>
-      </div>
       <div className="flex gap-2">
         <NeoButton size="sm" variant="primary" onClick={handleAdd} disabled={!name.trim()}>
           Añadir
