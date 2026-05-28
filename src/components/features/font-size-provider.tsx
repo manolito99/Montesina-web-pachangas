@@ -19,6 +19,12 @@ export function FontSizeProvider() {
 }
 
 function applySize(size: string) {
+  if (size === "normal") {
+    // Limpiar cualquier estilo previo para no romper position:fixed en iOS
+    document.body.style.zoom = "";
+    document.documentElement.style.fontSize = "";
+    return;
+  }
   const level = LEVELS[size] || LEVELS.normal;
   document.body.style.zoom = String(level.zoom);
   document.documentElement.style.fontSize = level.fontSize;
