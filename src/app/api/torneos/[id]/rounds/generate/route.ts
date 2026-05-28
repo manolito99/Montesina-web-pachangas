@@ -55,12 +55,14 @@ export async function POST(
   if (tournament.format === "MEXICANO") {
     result = generateMexicanoRound(players, nextRoundNumber, numCourts);
   } else {
-    // Build partner history from all previous rounds
+    // Build partner history AND matches-played count from all previous rounds
     const allRounds = await db.tournamentRound.findMany({
       where: { tournamentId: params.id },
       include: { matches: true },
     });
     const partnerHistory = new Map<string, Set<string>>();
+    const matchesPlayed = new Map<string, number>();
+    const bump = (id: string) => matchesPlayed.set(id, (matchesPlayed.get(id) ?? 0) + 1);
     for (const r of allRounds) {
       for (const m of r.matches) {
         if (!partnerHistory.has(m.player1Id)) partnerHistory.set(m.player1Id, new Set());
@@ -71,9 +73,10 @@ export async function POST(
         if (!partnerHistory.has(m.player4Id)) partnerHistory.set(m.player4Id, new Set());
         partnerHistory.get(m.player3Id)!.add(m.player4Id);
         partnerHistory.get(m.player4Id)!.add(m.player3Id);
+        bump(m.player1Id); bump(m.player2Id); bump(m.player3Id); bump(m.player4Id);
       }
     }
-    result = generateAmericanoRound(players, partnerHistory, numCourts);
+    result = generateAmericanoRound(players, partnerHistory, numCourts, matchesPlayed);
   }
 
   if (result.matches.length === 0) {

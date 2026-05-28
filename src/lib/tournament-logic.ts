@@ -26,8 +26,16 @@ export function generateAmericanoRound(
   players: PlayerSlot[],
   partnerHistory: Map<string, Set<string>>,
   numCourts: number,
+  matchesPlayed: Map<string, number> = new Map(),
 ): RoundResult {
-  const ids = shuffle(players.map((p) => p.id));
+  // Order: fewest matches first, then random within same count
+  const shuffled = shuffle(players.map((p) => p.id));
+  const ids = shuffled.sort((a, b) => {
+    const ma = matchesPlayed.get(a) ?? 0;
+    const mb = matchesPlayed.get(b) ?? 0;
+    return ma - mb;
+  });
+
   const maxMatchesPerRound = Math.min(Math.floor(ids.length / 4), numCourts);
   const used = new Set<string>();
   const pairs: [string, string][] = [];
