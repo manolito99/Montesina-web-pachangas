@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, format, category, pointsPerMatch = 21, courtIds = [], notes, playerIds = [] } = body;
+  const { name, format, category, pointsPerMatch = 21, courtIds = [], notes, playerIds = [], guests = [] } = body;
 
   if (!name || !format || !category) {
     return NextResponse.json({ error: "name, format y category son obligatorios" }, { status: 400 });
@@ -49,10 +49,18 @@ export async function POST(req: NextRequest) {
       pointsPerMatch,
       courtIds,
       notes: notes || null,
-      status: playerIds.length > 0 ? "OPEN" : "DRAFT",
+      status: (playerIds.length + guests.length) > 0 ? "OPEN" : "DRAFT",
       organizerId: userId,
-      players: playerIds.length > 0 ? {
-        create: playerIds.map((uid: string) => ({ userId: uid })),
+      players: (playerIds.length + guests.length) > 0 ? {
+        create: [
+          ...playerIds.map((uid: string) => ({ userId: uid })),
+          ...guests
+            .filter((g: { name?: string }) => g.name && g.name.trim())
+            .map((g: { name: string; level?: number }) => ({
+              guestName: g.name.trim(),
+              guestLevel: g.level && g.level >= 1 && g.level <= 5 ? g.level : 3,
+            })),
+        ],
       } : undefined,
     },
     include: {

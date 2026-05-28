@@ -19,10 +19,10 @@ export async function GET(
         include: {
           matches: {
             include: {
-              player1: { include: { user: { select: { id: true, name: true } } } },
-              player2: { include: { user: { select: { id: true, name: true } } } },
-              player3: { include: { user: { select: { id: true, name: true } } } },
-              player4: { include: { user: { select: { id: true, name: true } } } },
+              player1: { select: { id: true, guestName: true, user: { select: { id: true, name: true } } } },
+              player2: { select: { id: true, guestName: true, user: { select: { id: true, name: true } } } },
+              player3: { select: { id: true, guestName: true, user: { select: { id: true, name: true } } } },
+              player4: { select: { id: true, guestName: true, user: { select: { id: true, name: true } } } },
             },
           },
         },
@@ -35,7 +35,29 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(tournament);
+  // Normalize player display data (user OR guest)
+  const normalizePlayer = (p: { user: { id: string; name: string | null; level: number; gender?: string; image?: string | null } | null; guestName: string | null; guestLevel: number | null }) => ({
+    displayName: p.user?.name || p.guestName || "?",
+    level: p.user?.level || p.guestLevel || 3,
+    isGuest: !p.user,
+  });
+
+  const result = {
+    ...tournament,
+    players: tournament.players.map((p) => ({ ...p, ...normalizePlayer(p), user: p.user ? { ...p.user, name: p.user.name || p.guestName, level: p.user.level } : { id: p.id, name: p.guestName, level: p.guestLevel || 3, gender: "MALE", image: null } })),
+    rounds: tournament.rounds.map((r) => ({
+      ...r,
+      matches: r.matches.map((m) => ({
+        ...m,
+        player1: { ...m.player1, user: m.player1.user ? { id: m.player1.user.id, name: m.player1.user.name || m.player1.guestName } : { id: m.player1.id, name: m.player1.guestName } },
+        player2: { ...m.player2, user: m.player2.user ? { id: m.player2.user.id, name: m.player2.user.name || m.player2.guestName } : { id: m.player2.id, name: m.player2.guestName } },
+        player3: { ...m.player3, user: m.player3.user ? { id: m.player3.user.id, name: m.player3.user.name || m.player3.guestName } : { id: m.player3.id, name: m.player3.guestName } },
+        player4: { ...m.player4, user: m.player4.user ? { id: m.player4.user.id, name: m.player4.user.name || m.player4.guestName } : { id: m.player4.id, name: m.player4.guestName } },
+      })),
+    })),
+  };
+
+  return NextResponse.json(result);
 }
 
 export async function DELETE(

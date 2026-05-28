@@ -28,6 +28,11 @@ interface PlayerInfo {
   gender: string;
 }
 
+interface GuestPlayer {
+  name: string;
+  level: number;
+}
+
 interface CourtFromApi {
   id: string;
   name: string;
@@ -47,6 +52,7 @@ interface WizardState {
   notes: string;
   playerIds: string[];
   players: PlayerInfo[];
+  guests: GuestPlayer[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -101,7 +107,7 @@ function canAdvance(s: WizardState): boolean {
     case 2:
       return s.name.trim().length > 0;
     case 3:
-      return s.players.length >= 4;
+      return s.players.length + s.guests.length >= 4;
     case 4:
       return true;
     default:
@@ -465,12 +471,18 @@ function Step3({
   players,
   addPlayer,
   removePlayer,
+  guests,
+  addGuest,
+  removeGuest,
   organizerName,
 }: {
   category: Category | null;
   players: PlayerInfo[];
   addPlayer: (p: PlayerInfo) => void;
   removePlayer: (id: string) => void;
+  guests: GuestPlayer[];
+  addGuest: (g: GuestPlayer) => void;
+  removeGuest: (idx: number) => void;
   organizerName: string;
 }) {
   const [query, setQuery] = useState("");
@@ -547,12 +559,15 @@ function Step3({
         )}
       </div>
 
+      {/* Add guest player */}
+      <GuestPlayerForm onAdd={addGuest} />
+
       {/* Selected players */}
       <div>
         <p className="mb-2 text-sm font-semibold text-ink-2">
-          Jugadores seleccionados ({players.length})
+          Jugadores seleccionados ({players.length + guests.length})
         </p>
-        {players.length < 4 && (
+        {(players.length + guests.length) < 4 && (
           <p className="mb-3 text-xs text-muted">
             Minimo 4 jugadores para crear el torneo.
           </p>
@@ -603,7 +618,87 @@ function Step3({
                 </button>
               </div>
             ))}
+
+          {/* Guest players */}
+          {guests.map((g, idx) => (
+            <div
+              key={`guest-${idx}`}
+              className="flex items-center gap-3 rounded-lg border-[1.5px] border-dashed border-ink bg-fill p-3"
+            >
+              <Avatar label={g.name.charAt(0).toUpperCase()} size={36} />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-bold text-ink truncate block">{g.name}</span>
+                <span className="flex items-center gap-1 text-xs text-muted">
+                  Externo · Nivel <LevelBalls value={g.level} size={8} />
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeGuest(idx)}
+                className="flex h-7 w-7 items-center justify-center rounded-full border-[1.2px] border-ink bg-fill text-xs font-bold text-ink hover:bg-paper-alt"
+                aria-label={`Quitar a ${g.name}`}
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GuestPlayerForm({ onAdd }: { onAdd: (g: GuestPlayer) => void }) {
+  const [showing, setShowing] = useState(false);
+  const [name, setName] = useState("");
+  const [level, setLevel] = useState(3);
+
+  function handleAdd() {
+    if (name.trim().length === 0) return;
+    onAdd({ name: name.trim(), level });
+    setName("");
+    setLevel(3);
+    setShowing(false);
+  }
+
+  if (!showing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setShowing(true)}
+        className="w-full rounded-lg border-[1.5px] border-dashed border-muted bg-fill p-3 text-sm font-semibold text-ink-2 hover:border-lime-deep hover:text-lime-deep"
+      >
+        + Añadir jugador externo (sin cuenta)
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border-[1.5px] border-lime-deep bg-lime-soft/30 p-3 space-y-3">
+      <p className="text-[10px] font-bold uppercase tracking-widest2 text-lime-deep">
+        Nuevo jugador externo
+      </p>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Nombre del jugador"
+        className="block w-full rounded-md border-[1.5px] border-ink bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-lime"
+        autoFocus
+      />
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-muted">Nivel:</span>
+        <button type="button" onClick={() => setLevel(Math.max(1, level - 1))} className="flex h-6 w-6 items-center justify-center rounded-full border-[1.2px] border-ink bg-fill text-xs font-bold">-</button>
+        <LevelBalls value={level} size={12} />
+        <button type="button" onClick={() => setLevel(Math.min(5, level + 1))} className="flex h-6 w-6 items-center justify-center rounded-full border-[1.2px] border-ink bg-fill text-xs font-bold">+</button>
+      </div>
+      <div className="flex gap-2">
+        <NeoButton size="sm" variant="primary" onClick={handleAdd} disabled={!name.trim()}>
+          Añadir
+        </NeoButton>
+        <NeoButton size="sm" variant="ghost" onClick={() => { setShowing(false); setName(""); }}>
+          Cancelar
+        </NeoButton>
       </div>
     </div>
   );
@@ -731,6 +826,7 @@ export default function NuevoTorneoPage() {
     notes: "",
     playerIds: [],
     players: [],
+    guests: [],
   });
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
@@ -850,6 +946,7 @@ export default function NuevoTorneoPage() {
           courtIds: state.courtIds,
           notes: state.notes.trim() || null,
           playerIds: state.playerIds,
+          guests: state.guests,
         }),
       });
 
@@ -930,6 +1027,9 @@ export default function NuevoTorneoPage() {
               players={state.players}
               addPlayer={addPlayer}
               removePlayer={removePlayer}
+              guests={state.guests}
+              addGuest={(g) => patch({ guests: [...state.guests, g] })}
+              removeGuest={(idx) => patch({ guests: state.guests.filter((_, i) => i !== idx) })}
               organizerName={organizerName}
             />
           )}

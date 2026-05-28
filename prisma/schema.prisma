@@ -263,8 +263,10 @@ model TournamentPlayer {
   id           String     @id @default(cuid())
   tournamentId String     @map("tournament_id")
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  userId       String     @map("user_id")
-  user         User       @relation(fields: [userId], references: [id])
+  userId       String?    @map("user_id")
+  user         User?      @relation(fields: [userId], references: [id])
+  guestName    String?    @map("guest_name")
+  guestLevel   Int?       @map("guest_level")
   totalPoints  Int        @default(0) @map("total_points")
   joinedAt     DateTime   @default(now()) @map("joined_at")
 
@@ -273,7 +275,6 @@ model TournamentPlayer {
   matchesAsP3  TournamentMatch[] @relation("matchP3")
   matchesAsP4  TournamentMatch[] @relation("matchP4")
 
-  @@unique([tournamentId, userId])
   @@map("tournament_players")
 }
 
