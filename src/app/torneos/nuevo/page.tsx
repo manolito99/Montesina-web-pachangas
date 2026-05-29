@@ -1032,7 +1032,7 @@ export default function NuevoTorneoPage() {
     <>
       <SiteHeader variant="paper" />
 
-      <main className="min-h-screen bg-paper pb-40">
+      <main className="min-h-screen bg-paper pb-32">
         {/* Top bar */}
         <div className="container py-4">
           <Link
@@ -1094,8 +1094,8 @@ export default function NuevoTorneoPage() {
         </div>
       </main>
 
-      {/* Sticky footer bar — bottom-[68px] on mobile to clear body padding for tab bar */}
-      <div className="fixed inset-x-0 bottom-[68px] z-30 border-t-[1.5px] border-ink bg-paper md:bottom-0">
+      {/* Sticky footer bar — pegado al borde inferior con padding safe-area para iPhones */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t-[1.5px] border-ink bg-paper" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="container flex items-center justify-between py-3">
           <span className="font-hand text-sm text-muted">
             paso {state.step} de 4
