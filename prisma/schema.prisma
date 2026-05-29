@@ -271,6 +271,7 @@ model TournamentPlayer {
   guestName    String?    @map("guest_name")
   guestLevel   Int?       @map("guest_level")
   totalPoints  Int        @default(0) @map("total_points")
+  active       Boolean    @default(true)
   joinedAt     DateTime   @default(now()) @map("joined_at")
 
   matchesAsP1  TournamentMatch[] @relation("matchP1")

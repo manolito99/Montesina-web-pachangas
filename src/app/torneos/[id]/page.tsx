@@ -36,6 +36,7 @@ interface TournamentData {
   players: {
     id: string;
     totalPoints: number;
+    active: boolean;
     user: { id: string; name: string; level: number; gender: string };
   }[];
   rounds: {
@@ -209,6 +210,27 @@ export default function TournamentDetailPage() {
     }
   };
 
+  const handleTogglePlayerActive = async (playerId: string, active: boolean, name: string) => {
+    if (active) {
+      // Retirar
+      if (!confirm(`Retirar a ${name} del torneo? Sus puntos se mantendran pero no participara en proximas rondas.`)) return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/torneos/${id}/players/${playerId}`, {
+        method: active ? "DELETE" : "PUT",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "No se pudo cambiar el estado del jugador");
+        return;
+      }
+      await fetchTournament();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleSaveScore = async (matchId: string, scoreA: number, scoreB: number) => {
     try {
       const res = await fetch(`/api/torneos/${id}/matches/${matchId}`, {
@@ -326,6 +348,7 @@ export default function TournamentDetailPage() {
               onGenerateRound={handleGenerateRound}
               onFinish={handleFinish}
               onDelete={handleDelete}
+              onTogglePlayerActive={handleTogglePlayerActive}
             />
           </aside>
         </div>
@@ -342,7 +365,13 @@ export default function TournamentDetailPage() {
             onFinish={handleFinish}
           />
           <div className="mt-4">
-            <PlayerListSection players={data.players} />
+            <PlayerListSection
+              players={data.players}
+              canManage={canManage}
+              tournamentInProgress={data.status === "IN_PROGRESS"}
+              actionLoading={actionLoading}
+              onTogglePlayerActive={handleTogglePlayerActive}
+            />
           </div>
           {canManage && (
             <button
@@ -795,6 +824,7 @@ function TournamentSidebar({
   onGenerateRound,
   onFinish,
   onDelete,
+  onTogglePlayerActive,
 }: {
   data: TournamentData;
   isOrganizer: boolean;
@@ -805,6 +835,7 @@ function TournamentSidebar({
   onGenerateRound: () => void;
   onFinish: () => void;
   onDelete: () => void;
+  onTogglePlayerActive: (playerId: string, active: boolean, name: string) => void;
 }) {
   return (
     <div className="flex flex-col divide-y-[1.5px] divide-ink">
@@ -817,7 +848,13 @@ function TournamentSidebar({
         onGenerateRound={onGenerateRound}
         onFinish={onFinish}
       />
-      <PlayerListSection players={data.players} />
+      <PlayerListSection
+        players={data.players}
+        canManage={canManage}
+        tournamentInProgress={data.status === "IN_PROGRESS"}
+        actionLoading={actionLoading}
+        onTogglePlayerActive={onTogglePlayerActive}
+      />
       {canManage && (
         <div className="p-4">
           <button
@@ -914,13 +951,24 @@ function OrganizerActions({
 
 function PlayerListSection({
   players,
+  canManage = false,
+  tournamentInProgress = false,
+  actionLoading = false,
+  onTogglePlayerActive,
 }: {
   players: TournamentData["players"];
+  canManage?: boolean;
+  tournamentInProgress?: boolean;
+  actionLoading?: boolean;
+  onTogglePlayerActive?: (playerId: string, active: boolean, name: string) => void;
 }) {
+  const activeCount = players.filter((p) => p.active).length;
+  const inactiveCount = players.length - activeCount;
+
   return (
     <div className="p-4">
       <div className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
-        JUGADORES &middot; {players.length}
+        JUGADORES &middot; {activeCount} activos{inactiveCount > 0 ? ` · ${inactiveCount} retirados` : ""}
       </div>
 
       {players.length === 0 ? (
@@ -930,14 +978,40 @@ function PlayerListSection({
       ) : (
         <div className="mt-3 space-y-2.5">
           {players.map((player) => (
-            <div key={player.id} className="flex items-center gap-2.5">
+            <div
+              key={player.id}
+              className={cn(
+                "flex items-center gap-2.5",
+                !player.active && "opacity-50",
+              )}
+            >
               <Avatar label={initial(player.user.name)} size={28} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-bold text-ink">
-                  {player.user.name}
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="text-sm font-bold text-ink">{player.user.name}</span>
+                  {!player.active && (
+                    <span className="rounded bg-fill-alt px-1.5 py-px text-[9px] font-bold uppercase tracking-widest2 text-muted">
+                      Retirado
+                    </span>
+                  )}
                 </div>
                 <LevelBalls value={player.user.level} size={8} />
               </div>
+              {canManage && tournamentInProgress && onTogglePlayerActive && (
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() =>
+                    onTogglePlayerActive(player.id, player.active, player.user.name)
+                  }
+                  className={cn(
+                    "text-[10px] font-bold uppercase tracking-widest2 underline disabled:opacity-50",
+                    player.active ? "text-rose-600 hover:text-rose-800" : "text-lime-deep hover:text-lime-deep",
+                  )}
+                >
+                  {player.active ? "Retirar" : "Reactivar"}
+                </button>
+              )}
             </div>
           ))}
         </div>

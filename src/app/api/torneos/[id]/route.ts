@@ -14,7 +14,7 @@ export async function GET(
       organizer: { select: { id: true, name: true } },
       players: {
         include: { user: { select: { id: true, name: true, level: true, gender: true, image: true } } },
-        orderBy: { totalPoints: "desc" },
+        orderBy: [{ active: "desc" }, { totalPoints: "desc" }],
       },
       rounds: {
         include: {

@@ -16,7 +16,7 @@ export async function POST(
 
   const tournament = await db.tournament.findUnique({
     where: { id: params.id },
-    include: { players: true },
+    include: { players: { where: { active: true } } },
   });
 
   if (!tournament) {

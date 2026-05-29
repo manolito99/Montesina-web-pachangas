@@ -17,7 +17,7 @@ export async function POST(
   const tournament = await db.tournament.findUnique({
     where: { id: params.id },
     include: {
-      players: true,
+      players: { where: { active: true } },
       rounds: { include: { matches: true }, orderBy: { roundNumber: "desc" }, take: 1 },
     },
   });
@@ -30,6 +30,9 @@ export async function POST(
   }
   if (tournament.status !== "IN_PROGRESS") {
     return NextResponse.json({ error: "El torneo no está en curso" }, { status: 400 });
+  }
+  if (tournament.players.length < 4) {
+    return NextResponse.json({ error: "Necesitas al menos 4 jugadores activos para generar una ronda" }, { status: 400 });
   }
 
   const lastRound = tournament.rounds[0];
