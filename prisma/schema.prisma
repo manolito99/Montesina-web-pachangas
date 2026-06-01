@@ -126,8 +126,9 @@ enum PachangaStatus {
 
 model Participation {
   id         String              @id @default(cuid())
-  userId     String              @map("user_id")
-  user       User                @relation(fields: [userId], references: [id])
+  userId     String?             @map("user_id")
+  user       User?               @relation(fields: [userId], references: [id])
+  guestName  String?             @map("guest_name")
   pachangaId String              @map("pachanga_id")
   pachanga   Pachanga            @relation(fields: [pachangaId], references: [id])
   status         ParticipationStatus @default(CONFIRMED)
@@ -198,6 +199,7 @@ model NotificationPrefs {
   recordatorio    Boolean @default(true)
   minutesBefore   Int     @default(60) @map("minutes_before")
   alguienSeApunta Boolean @default(true) @map("alguien_se_apunta")
+  mensajesChat    Boolean @default(true) @map("mensajes_chat")
   courtId         String? @map("court_id")
   court           Court?  @relation(fields: [courtId], references: [id])
 

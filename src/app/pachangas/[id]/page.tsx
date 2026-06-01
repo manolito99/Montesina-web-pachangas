@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -34,10 +34,25 @@ interface UserBasic {
 
 interface Participation {
   id: string;
-  userId: string;
+  userId: string | null;
+  guestName: string | null;
   status: "CONFIRMED" | "WAITLIST" | "CANCELLED";
   position: number | null;
-  user: UserBasic & { gender: "MALE" | "FEMALE" };
+  user: (UserBasic & { gender: "MALE" | "FEMALE" }) | null;
+}
+
+// Display helpers para soportar tanto usuarios registrados como externos (guests)
+function pName(p: Participation): string {
+  return p.user?.name ?? p.guestName ?? "?";
+}
+function pLevel(p: Participation): number {
+  return p.user?.level ?? 3;
+}
+function pGender(p: Participation): "MALE" | "FEMALE" | null {
+  return p.user?.gender ?? null;
+}
+function isGuest(p: Participation): boolean {
+  return !p.userId && !!p.guestName;
 }
 
 interface ChatMsg {
@@ -46,6 +61,8 @@ interface ChatMsg {
   userId: string;
   user: { id: string; name: string };
   createdAt: string;
+  pending?: boolean;
+  failed?: boolean;
 }
 
 interface PachangaData {
@@ -104,6 +121,26 @@ function formatChatTime(iso: string): string {
   return `${hh}:${mm}`;
 }
 
+const MONTH_SHORT = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"] as const;
+
+function sameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function formatDayLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(d, now)) return "Hoy";
+  if (sameDay(d, yesterday)) return "Ayer";
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+}
+
 const CAT_EMOJI: Record<string, string> = { M: "♂️", F: "♀️", X: "🔀" };
 const CAT_NAME: Record<string, string> = { M: "Masculino", F: "Femenino", X: "Mixto" };
 
@@ -146,6 +183,11 @@ export default function PachangaDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Chat state (lifted from ChatSection so the input/messages are shared
+  // between the mobile and desktop renders of the section)
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const lastSeenRef = useRef<string | null>(null);
+
   const fetchPachanga = useCallback(async () => {
     try {
       const res = await fetch(`/api/pachangas/${id}`);
@@ -155,6 +197,10 @@ export default function PachangaDetailPage() {
       }
       const json: PachangaData = await res.json();
       setData(json);
+      setChatMessages(json.chatMessages);
+      lastSeenRef.current = json.chatMessages.length
+        ? json.chatMessages[json.chatMessages.length - 1].createdAt
+        : null;
       setNotFound(false);
     } catch {
       setNotFound(true);
@@ -166,6 +212,105 @@ export default function PachangaDetailPage() {
   useEffect(() => {
     fetchPachanga();
   }, [fetchPachanga]);
+
+  // Poll chat every 5s while tab is visible; refresh immediately on visibility change
+  useEffect(() => {
+    if (!id || notFound) return;
+
+    let cancelled = false;
+
+    async function tick() {
+      if (typeof document !== "undefined" && document.hidden) return;
+      try {
+        const qs = lastSeenRef.current
+          ? `?after=${encodeURIComponent(lastSeenRef.current)}`
+          : "";
+        const res = await fetch(`/api/pachangas/${id}/chat${qs}`);
+        if (!res.ok) return;
+        const json: { messages: ChatMsg[] } = await res.json();
+        if (cancelled || !json.messages.length) return;
+        setChatMessages((prev) => {
+          const known = new Set(prev.map((m) => m.id));
+          const fresh = json.messages.filter((m) => !known.has(m.id));
+          if (!fresh.length) return prev;
+          const next = [...prev, ...fresh];
+          lastSeenRef.current = next[next.length - 1].createdAt;
+          return next;
+        });
+      } catch {
+        /* ignore — next tick retries */
+      }
+    }
+
+    const interval = setInterval(tick, 5000);
+    const onVisibility = () => {
+      if (!document.hidden) tick();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [id, notFound]);
+
+  const sendMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return false;
+      const tempId = `tmp-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      const nowIso = new Date().toISOString();
+      const optimistic: ChatMsg = {
+        id: tempId,
+        text: trimmed,
+        userId: currentUserId ?? "",
+        user: { id: currentUserId ?? "", name: session?.user?.name ?? "Tú" },
+        createdAt: nowIso,
+        pending: true,
+      };
+      setChatMessages((prev) => [...prev, optimistic]);
+      try {
+        const res = await fetch(`/api/pachangas/${id}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: trimmed }),
+        });
+        if (!res.ok) {
+          setChatMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempId ? { ...m, pending: false, failed: true } : m,
+            ),
+          );
+          return false;
+        }
+        const real: ChatMsg = await res.json();
+        setChatMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? real : m)),
+        );
+        lastSeenRef.current = real.createdAt;
+        return true;
+      } catch {
+        setChatMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...m, pending: false, failed: true } : m,
+          ),
+        );
+        return false;
+      }
+    },
+    [id, currentUserId, session?.user?.name],
+  );
+
+  const retryMessage = useCallback(
+    async (failedId: string) => {
+      const msg = chatMessages.find((m) => m.id === failedId);
+      if (!msg) return;
+      setChatMessages((prev) => prev.filter((m) => m.id !== failedId));
+      await sendMessage(msg.text);
+    },
+    [chatMessages, sendMessage],
+  );
 
   /* ── Join handler ── */
   const handleJoin = async () => {
@@ -210,6 +355,46 @@ export default function PachangaDetailPage() {
         const err = await res.json();
         alert(err.error || "No se pudo eliminar");
       }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /* ── Organizer: add guest player ── */
+  const handleAddGuest = async (name: string): Promise<boolean> => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/pachangas/${id}/guests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "No se pudo añadir al externo");
+        return false;
+      }
+      await fetchPachanga();
+      return true;
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /* ── Organizer: remove a participant (registered user or guest) ── */
+  const handleRemoveParticipation = async (participationId: string, name: string) => {
+    if (!confirm(`¿Quitar a ${name} de la pachanga?`)) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/pachangas/${id}/participations/${participationId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "No se pudo quitar");
+        return;
+      }
+      await fetchPachanga();
     } finally {
       setActionLoading(false);
     }
@@ -267,7 +452,9 @@ export default function PachangaDetailPage() {
       (p.status === "CONFIRMED" || p.status === "WAITLIST"),
   );
   const plazasLibres = data.maxPlayers - confirmed.length;
-  const avatarLabels = confirmed.map((p) => initial(p.user.name));
+  const avatarLabels = confirmed.map((p) => initial(pName(p)));
+  const isOrganizer = currentUserId === data.organizerId;
+  const canPost = isOrganizer || hasJoined;
 
   return (
     <>
@@ -309,8 +496,10 @@ export default function PachangaDetailPage() {
               actionLoading={actionLoading}
               onJoin={handleJoin}
               onLeave={handleLeave}
-              isOrganizer={currentUserId === data.organizerId}
+              isOrganizer={isOrganizer}
               onDelete={handleDelete}
+              onAddGuest={handleAddGuest}
+              onRemoveParticipation={handleRemoveParticipation}
             />
           </div>
 
@@ -321,13 +510,25 @@ export default function PachangaDetailPage() {
               waitlist={waitlist}
               isCompleto={isCompleto}
               currentUserId={currentUserId}
+              messages={chatMessages}
+              canPost={canPost}
+              isLoggedIn={!!currentUserId}
+              onSend={sendMessage}
+              onRetry={retryMessage}
             />
           </aside>
         </div>
 
         {/* ── Mobile chat section ── */}
         <div className="border-t-[1.5px] border-ink p-4 md:hidden">
-          <ChatSection chatMessages={data.chatMessages} currentUserId={currentUserId} />
+          <ChatSection
+            messages={chatMessages}
+            currentUserId={currentUserId}
+            canPost={canPost}
+            isLoggedIn={!!currentUserId}
+            onSend={sendMessage}
+            onRetry={retryMessage}
+          />
         </div>
 
         {/* ── Mobile sticky CTA ── */}
@@ -367,6 +568,8 @@ function MainContent({
   onLeave,
   isOrganizer,
   onDelete,
+  onAddGuest,
+  onRemoveParticipation,
 }: {
   data: PachangaData;
   confirmed: Participation[];
@@ -380,6 +583,8 @@ function MainContent({
   onLeave: () => void;
   isOrganizer: boolean;
   onDelete: () => void;
+  onAddGuest: (name: string) => Promise<boolean>;
+  onRemoveParticipation: (participationId: string, name: string) => Promise<void>;
 }) {
   const dateDisplay = formatDateRange(data.date, data.duration);
   const courtDisplay = `${data.court.name} · ${data.court.type.toLowerCase()}`;
@@ -438,7 +643,15 @@ function MainContent({
       </div>
 
       {/* Confirmed players list */}
-      <PlayersSection confirmed={confirmed} maxPlayers={data.maxPlayers} isCompleto={isCompleto} />
+      <PlayersSection
+        confirmed={confirmed}
+        maxPlayers={data.maxPlayers}
+        isCompleto={isCompleto}
+        isOrganizer={isOrganizer}
+        actionLoading={actionLoading}
+        onAddGuest={onAddGuest}
+        onRemove={onRemoveParticipation}
+      />
 
       {/* Mixed balance card */}
       {data.category === "X" && (
@@ -507,8 +720,8 @@ function MixedBalanceCard({
 }) {
   const hTarget = Math.ceil(maxPlayers / 2);
   const mTarget = Math.floor(maxPlayers / 2);
-  const males = confirmed.filter((p) => p.user.gender === "MALE");
-  const females = confirmed.filter((p) => p.user.gender === "FEMALE");
+  const males = confirmed.filter((p) => pGender(p) === "MALE");
+  const females = confirmed.filter((p) => pGender(p) === "FEMALE");
   const hFilled = males.length;
   const mFilled = females.length;
   const hEmpty = Math.max(hTarget - hFilled, 0);
@@ -527,7 +740,7 @@ function MixedBalanceCard({
             {males.map((p) => (
               <Avatar
                 key={p.id}
-                label={initial(p.user.name)}
+                label={initial(pName(p))}
                 size={28}
                 lime={isCompleto}
               />
@@ -545,7 +758,7 @@ function MixedBalanceCard({
             {females.map((p) => (
               <Avatar
                 key={p.id}
-                label={initial(p.user.name)}
+                label={initial(pName(p))}
                 size={28}
                 lime={isCompleto}
               />
@@ -752,20 +965,36 @@ function downloadCalendarEvent(data: PachangaData) {
    ────────────────────────────────────────────── */
 
 function Sidebar({
-  data,
   waitlist,
   isCompleto,
   currentUserId,
+  messages,
+  canPost,
+  isLoggedIn,
+  onSend,
+  onRetry,
 }: {
   data: PachangaData;
   waitlist: Participation[];
   isCompleto: boolean;
   currentUserId: string | null;
+  messages: ChatMsg[];
+  canPost: boolean;
+  isLoggedIn: boolean;
+  onSend: (text: string) => Promise<boolean>;
+  onRetry: (id: string) => void;
 }) {
   return (
     <div className="flex flex-col divide-y-[1.5px] divide-ink">
       <WaitlistSection waitlist={waitlist} isCompleto={isCompleto} />
-      <ChatSection chatMessages={data.chatMessages} currentUserId={currentUserId} />
+      <ChatSection
+        messages={messages}
+        currentUserId={currentUserId}
+        canPost={canPost}
+        isLoggedIn={isLoggedIn}
+        onSend={onSend}
+        onRetry={onRetry}
+      />
     </div>
   );
 }
@@ -778,12 +1007,33 @@ function PlayersSection({
   confirmed,
   maxPlayers,
   isCompleto,
+  isOrganizer = false,
+  actionLoading = false,
+  onAddGuest,
+  onRemove,
 }: {
   confirmed: Participation[];
   maxPlayers: number;
   isCompleto: boolean;
+  isOrganizer?: boolean;
+  actionLoading?: boolean;
+  onAddGuest?: (name: string) => Promise<boolean>;
+  onRemove?: (participationId: string, name: string) => Promise<void>;
 }) {
   const emptySlots = Math.max(maxPlayers - confirmed.length, 0);
+  const [guestForm, setGuestForm] = useState(false);
+  const [guestName, setGuestName] = useState("");
+
+  async function handleAdd() {
+    if (!onAddGuest) return;
+    const trimmed = guestName.trim();
+    if (!trimmed) return;
+    const ok = await onAddGuest(trimmed);
+    if (ok) {
+      setGuestName("");
+      setGuestForm(false);
+    }
+  }
 
   return (
     <div
@@ -808,16 +1058,33 @@ function PlayersSection({
                 {idx + 1}
               </span>
               <Avatar
-                label={initial(p.user.name)}
+                label={initial(pName(p))}
                 size={28}
                 lime={isCompleto}
+                dashed={isGuest(p)}
               />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-bold text-ink">
-                  {p.user.name}
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="truncate text-sm font-bold text-ink">{pName(p)}</span>
+                  {isGuest(p) && (
+                    <span className="shrink-0 rounded bg-fill-alt px-1.5 py-px text-[9px] font-bold uppercase tracking-widest2 text-muted">
+                      Externo
+                    </span>
+                  )}
                 </div>
-                <LevelBalls value={p.user.level} size={8} />
+                {!isGuest(p) && <LevelBalls value={pLevel(p)} size={8} />}
               </div>
+              {isOrganizer && onRemove && (
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => onRemove(p.id, pName(p))}
+                  className="text-[10px] font-bold uppercase tracking-widest2 text-rose-600 underline hover:text-rose-800 disabled:opacity-50"
+                  aria-label={`Quitar a ${pName(p)}`}
+                >
+                  Quitar
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -836,6 +1103,52 @@ function PlayersSection({
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Añadir externo (solo organizador) */}
+      {isOrganizer && onAddGuest && (
+        <div className="mt-3 border-t border-dashed border-muted/50 pt-3">
+          {guestForm ? (
+            <div className="rounded-lg border-[1.5px] border-lime-deep bg-lime-soft/30 p-2 space-y-2">
+              <input
+                type="text"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+                placeholder="Nombre del externo"
+                maxLength={60}
+                className="block w-full rounded-md border-[1.5px] border-ink bg-paper px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-lime"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={actionLoading || !guestName.trim()}
+                  onClick={handleAdd}
+                  className="flex-1 rounded-md border-[1.5px] border-ink bg-lime px-2 py-1 text-xs font-bold text-ink disabled:opacity-50"
+                >
+                  Añadir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setGuestForm(false); setGuestName(""); }}
+                  className="rounded-md border-[1.5px] border-ink bg-fill px-2 py-1 text-xs font-bold text-ink"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setGuestForm(true)}
+              disabled={actionLoading}
+              className="w-full rounded-lg border-[1.5px] border-dashed border-muted bg-fill p-2 text-xs font-semibold text-ink-2 hover:border-lime-deep hover:text-lime-deep disabled:opacity-50"
+            >
+              + Añadir externo (sin cuenta)
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -875,12 +1188,17 @@ function WaitlistSection({
               <span className="w-5 text-center font-hand text-xs text-muted">
                 {entry.position ?? idx + 1}
               </span>
-              <Avatar label={initial(entry.user.name)} size={28} />
+              <Avatar label={initial(pName(entry))} size={28} dashed={isGuest(entry)} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-bold text-ink">
-                  {entry.user.name}
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="truncate text-sm font-bold text-ink">{pName(entry)}</span>
+                  {isGuest(entry) && (
+                    <span className="shrink-0 rounded bg-fill-alt px-1.5 py-px text-[9px] font-bold uppercase tracking-widest2 text-muted">
+                      Externo
+                    </span>
+                  )}
                 </div>
-                <LevelBalls value={entry.user.level} size={8} />
+                {!isGuest(entry) && <LevelBalls value={pLevel(entry)} size={8} />}
               </div>
             </div>
           ))}
@@ -894,40 +1212,150 @@ function WaitlistSection({
    Chat section
    ────────────────────────────────────────────── */
 
-function ChatSection({ chatMessages, currentUserId }: { chatMessages: ChatMsg[]; currentUserId: string | null }) {
+function ChatSection({
+  messages,
+  currentUserId,
+  canPost,
+  isLoggedIn,
+  onSend,
+  onRetry,
+}: {
+  messages: ChatMsg[];
+  currentUserId: string | null;
+  canPost: boolean;
+  isLoggedIn: boolean;
+  onSend: (text: string) => Promise<boolean>;
+  onRetry: (id: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
+
+  // Pre-compute display flags: when prev msg is from the same author within
+  // 5 min, hide the author footer on the previous one so the chain reads tighter.
+  const decorated = useMemo(() => {
+    return messages.map((m, i) => {
+      const prev = i > 0 ? messages[i - 1] : null;
+      const dayChanged =
+        !prev || !sameDay(new Date(prev.createdAt), new Date(m.createdAt));
+      const next = i < messages.length - 1 ? messages[i + 1] : null;
+      const sameAuthorAsNext =
+        next &&
+        next.userId === m.userId &&
+        Math.abs(
+          new Date(next.createdAt).getTime() - new Date(m.createdAt).getTime(),
+        ) < 5 * 60 * 1000 &&
+        sameDay(new Date(next.createdAt), new Date(m.createdAt));
+      return { msg: m, dayChanged, showWho: !sameAuthorAsNext };
+    });
+  }, [messages]);
+
+  // Track whether the user is near the bottom; only auto-scroll if so.
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    stickToBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (stickToBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft.trim() || sending || !canPost) return;
+    setSending(true);
+    const toSend = draft;
+    setDraft("");
+    stickToBottomRef.current = true;
+    await onSend(toSend);
+    setSending(false);
+  }
+
   return (
     <div className="p-4">
       <div className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
-        CHAT &middot; {chatMessages.length}
+        CHAT &middot; {messages.length}
       </div>
 
-      {chatMessages.length === 0 ? (
+      {messages.length === 0 ? (
         <p className="mt-2 font-hand text-xs text-muted">
           Aun no hay mensajes.
         </p>
       ) : (
-        <div className="mt-3 space-y-3">
-          {chatMessages.map((msg) => (
-            <ChatMessage
-              key={msg.id}
-              who={msg.user.name}
-              text={msg.text}
-              time={formatChatTime(msg.createdAt)}
-              mine={msg.userId === currentUserId}
-            />
+        <div
+          ref={scrollerRef}
+          onScroll={handleScroll}
+          className="mt-3 max-h-[60vh] space-y-3 overflow-y-auto pr-1"
+          data-testid="chat-scroller"
+        >
+          {decorated.map(({ msg, dayChanged, showWho }) => (
+            <div key={msg.id}>
+              {dayChanged && (
+                <div className="my-2 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-muted/40" />
+                  <span className="font-hand text-[10px] uppercase tracking-widest2 text-muted">
+                    {formatDayLabel(msg.createdAt)}
+                  </span>
+                  <div className="h-px flex-1 bg-muted/40" />
+                </div>
+              )}
+              <ChatMessage
+                who={msg.user.name}
+                text={msg.text}
+                time={formatChatTime(msg.createdAt)}
+                mine={msg.userId === currentUserId}
+                pending={msg.pending}
+                failed={msg.failed}
+                showWho={showWho}
+                onRetry={msg.failed ? () => onRetry(msg.id) : undefined}
+              />
+            </div>
           ))}
         </div>
       )}
 
-      {/* Chat input placeholder (non-functional) */}
-      <div className="mt-4 flex items-center gap-2">
-        <div className="flex-1 rounded-full border-[1.5px] border-ink bg-fill px-3 py-2 text-xs text-muted">
-          Escribe un mensaje...
+      {/* Chat input */}
+      {!isLoggedIn ? (
+        <div className="mt-4 rounded-full border-[1.5px] border-dashed border-muted px-3 py-2 text-center text-xs text-muted">
+          <Link href="/login" className="font-semibold text-lime-deep underline">
+            Inicia sesión
+          </Link>{" "}
+          para escribir
         </div>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] border-ink bg-lime text-sm font-bold text-ink">
-          &uarr;
-        </span>
-      </div>
+      ) : !canPost ? (
+        <div className="mt-4 rounded-full border-[1.5px] border-dashed border-muted px-3 py-2 text-center text-xs text-muted">
+          Apúntate para participar en el chat
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-2">
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Escribe un mensaje..."
+            maxLength={500}
+            disabled={sending}
+            aria-label="Escribir mensaje"
+            data-testid="chat-input"
+            className="flex-1 rounded-full border-[1.5px] border-ink bg-fill px-3 py-2 text-xs text-ink outline-none focus:border-lime-deep disabled:opacity-60"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim() || sending}
+            aria-label="Enviar mensaje"
+            data-testid="chat-send"
+            className="flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] border-ink bg-lime text-sm font-bold text-ink transition-opacity disabled:opacity-50"
+          >
+            &uarr;
+          </button>
+        </form>
+      )}
     </div>
   );
 }
