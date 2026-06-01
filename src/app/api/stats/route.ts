@@ -47,7 +47,9 @@ export async function GET() {
     orderBy: { _count: { userId: "desc" } },
     take: 5,
   });
-  const topUserIds = topPlayersRaw.map((t) => t.userId);
+  const topUserIds = topPlayersRaw
+    .map((t) => t.userId)
+    .filter((id): id is string => id !== null);
   const topUsersData = await db.user.findMany({
     where: { id: { in: topUserIds } },
     select: { id: true, name: true, level: true },
