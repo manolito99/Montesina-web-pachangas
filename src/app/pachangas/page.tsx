@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { MobileTabs } from "@/components/layout/mobile-tabs";
@@ -64,6 +65,13 @@ const CATS: { label: string; value: Category | null }[] = [
 ];
 
 export default function PachangasPage() {
+  const { data: session } = useSession();
+  const myGender = (session?.user as { gender?: "MALE" | "FEMALE" })?.gender ?? null;
+  // Hide the category that the user can't join.
+  const hiddenCat: Category | null =
+    myGender === "MALE" ? "F" : myGender === "FEMALE" ? "M" : null;
+  const visibleCats = CATS.filter((c) => c.value !== hiddenCat);
+
   const [cat, setCat] = useState<Category | null>(null);
   const [dateFilter, setDateFilter] = useState<string>("Todas");
   const [onlyFree, setOnlyFree] = useState(false);
@@ -90,7 +98,7 @@ export default function PachangasPage() {
     <>
       <SiteHeader variant="paper" active="Pachangas" />
       <main className="min-h-screen">
-        <CategoryBar cat={cat} setCat={setCat} count={filtered.length} />
+        <CategoryBar cats={visibleCats} cat={cat} setCat={setCat} count={filtered.length} />
 
         <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
           <FilterSidebar
@@ -110,17 +118,19 @@ export default function PachangasPage() {
 }
 
 function CategoryBar({
+  cats,
   cat,
   setCat,
   count,
 }: {
+  cats: { label: string; value: Category | null }[];
   cat: Category | null;
   setCat: (c: Category | null) => void;
   count: number;
 }) {
   return (
     <div className="flex items-center gap-2.5 overflow-x-auto border-b-[1.5px] border-ink bg-paper px-4 py-3 md:px-6">
-      {CATS.map((c) => (
+      {cats.map((c) => (
         <FilterChip
           key={c.label}
           label={c.label}

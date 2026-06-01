@@ -4,7 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function GET() {
+  // Hide categories the logged-in user can't join (see /api/pachangas GET).
+  const session = await getServerSession(authOptions);
+  const userId = (session?.user as { id?: string })?.id ?? null;
+  let excludedCategory: "M" | "F" | null = null;
+  if (userId) {
+    const me = await db.user.findUnique({ where: { id: userId }, select: { gender: true } });
+    if (me?.gender === "MALE") excludedCategory = "F";
+    else if (me?.gender === "FEMALE") excludedCategory = "M";
+  }
+
   const tournaments = await db.tournament.findMany({
+    where: excludedCategory ? { category: { not: excludedCategory } } : undefined,
     include: {
       organizer: { select: { id: true, name: true } },
       _count: { select: { players: true } },

@@ -10,8 +10,22 @@ async function getUserId(): Promise<string | null> {
 }
 
 export async function GET() {
+  // Hide categories the logged-in user can't join: a male user shouldn't see
+  // female-only pachangas in the listing, and vice versa. Mixed (X) is always
+  // visible. Anonymous visitors see everything.
+  const userId = await getUserId();
+  let excludedCategory: "M" | "F" | null = null;
+  if (userId) {
+    const me = await db.user.findUnique({ where: { id: userId }, select: { gender: true } });
+    if (me?.gender === "MALE") excludedCategory = "F";
+    else if (me?.gender === "FEMALE") excludedCategory = "M";
+  }
+
   const pachangas = await db.pachanga.findMany({
-    where: { date: { gte: new Date() } },
+    where: {
+      date: { gte: new Date() },
+      ...(excludedCategory ? { category: { not: excludedCategory } } : {}),
+    },
     include: {
       court: true,
       organizer: { select: { id: true, name: true, level: true } },

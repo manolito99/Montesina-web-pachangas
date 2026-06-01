@@ -193,6 +193,9 @@ export async function sendPushPlazaLibre(
     const prefs = sub.user?.notifPrefs;
     if (!prefs) return false;
     if (!prefs.plazaLibre) return false;
+    // Hard gender gate — never notify someone about a pachanga they can't join.
+    if (filter.category === "M" && sub.user?.gender !== "MALE") return false;
+    if (filter.category === "F" && sub.user?.gender !== "FEMALE") return false;
     if (filter.category === "M" && !prefs.catMasculino) return false;
     if (filter.category === "F" && !prefs.catFemenino) return false;
     if (filter.category === "X" && !prefs.catMixto) return false;
@@ -242,6 +245,11 @@ export async function sendPushFiltered(
       }
 
       const prefs = sub.user?.notifPrefs;
+
+      // Hard gender gate — even with stale prefs, never push a pachanga the
+      // recipient can't join.
+      if (filter.category === "M" && sub.user?.gender !== "MALE") { skipped++; return; }
+      if (filter.category === "F" && sub.user?.gender !== "FEMALE") { skipped++; return; }
 
       if (prefs) {
         if (!prefs.newPachanga) { skipped++; return; }

@@ -17,8 +17,16 @@ export async function GET() {
   let prefs = await db.notificationPrefs.findUnique({ where: { userId } });
 
   if (!prefs) {
+    // Initialise category flags from the user's gender so a male user doesn't
+    // get female-category push by default, and vice versa.
+    const me = await db.user.findUnique({ where: { id: userId }, select: { gender: true } });
+    const isFemale = me?.gender === "FEMALE";
     prefs = await db.notificationPrefs.create({
-      data: { userId },
+      data: {
+        userId,
+        catMasculino: !isFemale,
+        catFemenino: isFemale,
+      },
     });
   }
 

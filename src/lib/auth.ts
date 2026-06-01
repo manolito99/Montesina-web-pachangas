@@ -53,11 +53,22 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
       }
+      // Carry gender on the token so client components can show
+      // gender-appropriate UI without an extra fetch.
+      if (!token.gender && token.id) {
+        const u = await db.user.findUnique({
+          where: { id: token.id as string },
+          select: { gender: true },
+        });
+        if (u) token.gender = u.gender;
+      }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
-        (session.user as { id: string }).id = token.id as string;
+        const su = session.user as { id?: string; gender?: "MALE" | "FEMALE" };
+        su.id = token.id as string;
+        if (token.gender) su.gender = token.gender as "MALE" | "FEMALE";
       }
       return session;
     },
