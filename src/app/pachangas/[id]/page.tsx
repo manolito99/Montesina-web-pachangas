@@ -197,10 +197,20 @@ export default function PachangaDetailPage() {
       }
       const json: PachangaData = await res.json();
       setData(json);
-      setChatMessages(json.chatMessages);
-      lastSeenRef.current = json.chatMessages.length
-        ? json.chatMessages[json.chatMessages.length - 1].createdAt
-        : null;
+      setChatMessages((prev) => {
+        // Preserve in-flight optimistic messages so a refetch (e.g. after
+        // join/leave or a re-render) doesn't wipe out a message the user is
+        // currently sending — POST may still need to find its tempId.
+        const serverIds = new Set(json.chatMessages.map((m) => m.id));
+        const pendingOrFailed = prev.filter(
+          (m) => (m.pending || m.failed) && !serverIds.has(m.id),
+        );
+        return [...json.chatMessages, ...pendingOrFailed];
+      });
+      const lastServer = json.chatMessages[json.chatMessages.length - 1];
+      if (lastServer && (!lastSeenRef.current || lastServer.createdAt > lastSeenRef.current)) {
+        lastSeenRef.current = lastServer.createdAt;
+      }
       setNotFound(false);
     } catch {
       setNotFound(true);
@@ -285,9 +295,12 @@ export default function PachangaDetailPage() {
           return false;
         }
         const real: ChatMsg = await res.json();
-        setChatMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? real : m)),
-        );
+        setChatMessages((prev) => {
+          const withoutTmp = prev.filter((m) => m.id !== tempId);
+          // If a concurrent fetch already merged the real message, don't dup it.
+          if (withoutTmp.some((m) => m.id === real.id)) return withoutTmp;
+          return [...withoutTmp, real];
+        });
         lastSeenRef.current = real.createdAt;
         return true;
       } catch {

@@ -41,7 +41,18 @@ npm run db:migrate       # prisma migrate dev
 npm run db:seed          # prisma db seed (solo crea las 3 pistas del club)
 npm run db:studio        # prisma studio (GUI para DB)
 npm run db:reset         # prisma migrate reset (borra y recrea)
+npm run test:e2e         # Playwright e2e (host: requiere dev server arriba y DB expuesta en localhost:5432)
+npm run test:e2e:ui      # Playwright en modo UI
 ```
+
+E2E:
+```bash
+# Desde el host Windows (Playwright corre fuera del container Alpine):
+DATABASE_URL="postgresql://montesina:montesina@localhost:5432/montesina?schema=public" \
+  PLAYWRIGHT_BASE_URL="http://localhost:3000" \
+  npx playwright test
+```
+Los specs viven en `e2e/`. `e2e/helpers/fixtures.ts` siembra usuarios `e2e-{alice,bob,carol}@test.local` y una pachanga mixta antes de cada test, y los borra después. **Importante**: requiere `NEXTAUTH_URL=http://localhost:3000` en `.env` para que NextAuth no marque las cookies como `Secure` (que se ignoran sobre HTTP).
 
 Docker:
 ```bash
@@ -349,9 +360,9 @@ Solo accesible para `nolomanolo990@gmail.com` (validado con `isAdmin(email)`):
 
 ## Qué falta por hacer
 
-- **Chat funcional**: WebSocket o polling para mensajes en tiempo real.
 - **Editar perfil**: página `/perfil/editar` para cambiar nivel, género, nombre.
 - **Comunidad**: la ruta `/comunidad` del nav no tiene página.
-- **Tests automatizados**: Playwright para e2e de los flujos principales.
+- **Tests automatizados**: ampliar suite Playwright (de momento solo chat) al resto de flujos (apuntarse, torneos, push prefs).
+- **Chat realtime**: el chat usa polling cada 5s; migrar a WebSocket/SSE si el tráfico crece.
 - **Torneos avanzados**: Mix Americano (parejas mixtas obligatorias), Team Americano (parejas fijas).
 - **Planificación horaria**: actualmente las pistas variables se hacen ronda a ronda, no hay bloques de tiempo automatizados.
