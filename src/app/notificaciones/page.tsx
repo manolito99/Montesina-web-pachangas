@@ -20,6 +20,7 @@ interface Prefs {
   recordatorio: boolean;
   minutesBefore: number;
   alguienSeApunta: boolean;
+  mensajesChat: boolean;
   courtId: string | null;
 }
 
@@ -39,6 +40,7 @@ const DEFAULT_PREFS: Prefs = {
   recordatorio: true,
   minutesBefore: 60,
   alguienSeApunta: true,
+  mensajesChat: true,
   courtId: null,
 };
 
@@ -76,6 +78,7 @@ export default function NotificacionesPage() {
             recordatorio: data.recordatorio,
             minutesBefore: data.minutesBefore,
             alguienSeApunta: data.alguienSeApunta,
+            mensajesChat: data.mensajesChat ?? true,
             courtId: data.courtId,
           });
         }
@@ -191,6 +194,15 @@ export default function NotificacionesPage() {
                   label="Avísame cuando alguien se apunte a una pachanga que he creado"
                   checked={prefs.alguienSeApunta}
                   onChange={() => toggle("alguienSeApunta")}
+                />
+              </PrefsSection>
+
+              {/* ── Sección: Chat ── */}
+              <PrefsSection title="Chat de pachangas" icon="💬">
+                <ToggleRow
+                  label="Avísame cuando alguien escriba en el chat de una pachanga a la que estoy apuntado"
+                  checked={prefs.mensajesChat}
+                  onChange={() => toggle("mensajesChat")}
                 />
               </PrefsSection>
 

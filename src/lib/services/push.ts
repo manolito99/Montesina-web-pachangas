@@ -112,7 +112,9 @@ export async function sendPushToParticipants(
     select: { userId: true },
   });
 
-  const userIds = participations.map((p) => p.userId);
+  const userIds = participations
+    .map((p) => p.userId)
+    .filter((id): id is string => id !== null);
   if (userIds.length === 0) return { sent: 0, failed: 0 };
 
   const subs = await db.pushSubscription.findMany({
@@ -131,6 +133,46 @@ export async function sendPushToParticipants(
   const data = buildPayload(payload);
   const result = await sendToSubs(filtered, data);
   console.log(`[push] Participants (${pachangaId}): ${result.sent} sent, ${result.failed} failed`);
+  return result;
+}
+
+export async function sendPushChatMessage(
+  payload: { title: string; body: string; url?: string; tag?: string },
+  pachangaId: string,
+  excludeUserId?: string,
+) {
+  ensureVapid();
+
+  const participations = await db.participation.findMany({
+    where: {
+      pachangaId,
+      status: { in: ["CONFIRMED", "WAITLIST"] },
+      ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
+    },
+    select: { userId: true },
+  });
+
+  const userIds = participations
+    .map((p) => p.userId)
+    .filter((id): id is string => id !== null);
+  if (userIds.length === 0) return { sent: 0, failed: 0 };
+
+  const subs = await db.pushSubscription.findMany({
+    where: { userId: { in: userIds } },
+    include: { user: { include: { notifPrefs: true } } },
+  });
+
+  const filtered = subs.filter((sub) => {
+    const prefs = sub.user?.notifPrefs;
+    if (prefs && !prefs.mensajesChat) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) return { sent: 0, failed: 0 };
+
+  const data = buildPayload(payload);
+  const result = await sendToSubs(filtered, data);
+  console.log(`[push] Chat (${pachangaId}): ${result.sent} sent, ${result.failed} failed`);
   return result;
 }
 
@@ -254,6 +296,7 @@ export async function processReminders() {
     where: {
       status: "CONFIRMED",
       reminderSentAt: null,
+      userId: { not: null },
       pachanga: { date: { gt: now, lte: maxWindow } },
     },
     include: {
@@ -268,6 +311,7 @@ export async function processReminders() {
   let skipped = 0;
 
   for (const p of participations) {
+    if (!p.user) { skipped++; continue; }
     const prefs = p.user.notifPrefs;
     if (!prefs || !prefs.recordatorio) { skipped++; continue; }
 
