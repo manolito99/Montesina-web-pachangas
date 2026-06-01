@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isAdmin } from "@/lib/admin";
 
 export async function POST(
   req: NextRequest,
@@ -9,6 +10,7 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as { id?: string })?.id;
+  const userEmail = session?.user?.email;
   if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
@@ -17,11 +19,11 @@ export async function POST(
   if (!tournament) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (tournament.organizerId !== userId) {
+  if (!isAdmin(userEmail) && tournament.organizerId !== userId) {
     return NextResponse.json({ error: "Solo el organizador puede añadir jugadores" }, { status: 403 });
   }
-  if (tournament.status !== "DRAFT" && tournament.status !== "OPEN") {
-    return NextResponse.json({ error: "No se pueden añadir jugadores a un torneo en curso" }, { status: 400 });
+  if (tournament.status === "FINISHED") {
+    return NextResponse.json({ error: "No se pueden añadir jugadores a un torneo finalizado" }, { status: 400 });
   }
 
   const body = await req.json();
@@ -42,7 +44,7 @@ export async function POST(
     }
   }
 
-  // Skip already added users
+  // Skip already added users (whether active or retired — a retired user can be reactivated, not duplicated)
   const existing = await db.tournamentPlayer.findMany({
     where: { tournamentId: params.id, userId: { in: userIds } },
     select: { userId: true },
@@ -63,7 +65,10 @@ export async function POST(
 
   if (inserts.length > 0) {
     await db.tournamentPlayer.createMany({ data: inserts });
-    await db.tournament.update({ where: { id: params.id }, data: { status: "OPEN" } });
+    // Solo cambiar status de DRAFT a OPEN si todavía no había empezado
+    if (tournament.status === "DRAFT") {
+      await db.tournament.update({ where: { id: params.id }, data: { status: "OPEN" } });
+    }
   }
 
   return NextResponse.json({ added: inserts.length });

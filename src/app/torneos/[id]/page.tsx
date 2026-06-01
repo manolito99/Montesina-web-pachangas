@@ -210,6 +210,26 @@ export default function TournamentDetailPage() {
     }
   };
 
+  const handleAddPlayers = async (userIds: string[], guests: { name: string }[]) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/torneos/${id}/players`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userIds, guests }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "No se pudieron añadir los jugadores");
+        return false;
+      }
+      await fetchTournament();
+      return true;
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleTogglePlayerActive = async (playerId: string, active: boolean, name: string) => {
     if (active) {
       // Retirar
@@ -349,6 +369,7 @@ export default function TournamentDetailPage() {
               onFinish={handleFinish}
               onDelete={handleDelete}
               onTogglePlayerActive={handleTogglePlayerActive}
+              onAddPlayers={handleAddPlayers}
             />
           </aside>
         </div>
@@ -364,6 +385,16 @@ export default function TournamentDetailPage() {
             onGenerateRound={handleGenerateRound}
             onFinish={handleFinish}
           />
+          {canManage && (data.status === "OPEN" || data.status === "IN_PROGRESS") && (
+            <div className="mt-4">
+              <AddPlayersSection
+                category={data.category}
+                existingPlayerIds={new Set(data.players.filter((p) => p.user.id).map((p) => p.user.id))}
+                actionLoading={actionLoading}
+                onAddPlayers={handleAddPlayers}
+              />
+            </div>
+          )}
           <div className="mt-4">
             <PlayerListSection
               players={data.players}
@@ -825,6 +856,7 @@ function TournamentSidebar({
   onFinish,
   onDelete,
   onTogglePlayerActive,
+  onAddPlayers,
 }: {
   data: TournamentData;
   isOrganizer: boolean;
@@ -836,6 +868,7 @@ function TournamentSidebar({
   onFinish: () => void;
   onDelete: () => void;
   onTogglePlayerActive: (playerId: string, active: boolean, name: string) => void;
+  onAddPlayers: (userIds: string[], guests: { name: string }[]) => Promise<boolean | undefined>;
 }) {
   return (
     <div className="flex flex-col divide-y-[1.5px] divide-ink">
@@ -848,6 +881,14 @@ function TournamentSidebar({
         onGenerateRound={onGenerateRound}
         onFinish={onFinish}
       />
+      {canManage && (data.status === "OPEN" || data.status === "IN_PROGRESS") && (
+        <AddPlayersSection
+          category={data.category}
+          existingPlayerIds={new Set(data.players.filter((p) => p.user.id).map((p) => p.user.id))}
+          actionLoading={actionLoading}
+          onAddPlayers={onAddPlayers}
+        />
+      )}
       <PlayerListSection
         players={data.players}
         canManage={canManage}
@@ -941,6 +982,169 @@ function OrganizerActions({
           </NeoCard>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────
+   Add players section (mid-tournament)
+   ────────────────────────────────────────────── */
+
+interface SearchablePlayer {
+  id: string;
+  name: string;
+  level: number;
+  gender: string;
+}
+
+function AddPlayersSection({
+  category,
+  existingPlayerIds,
+  actionLoading,
+  onAddPlayers,
+}: {
+  category: "M" | "F" | "X";
+  existingPlayerIds: Set<string>;
+  actionLoading: boolean;
+  onAddPlayers: (userIds: string[], guests: { name: string }[]) => Promise<boolean | undefined>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [allUsers, setAllUsers] = useState<SearchablePlayer[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [guestName, setGuestName] = useState("");
+  const [showGuestForm, setShowGuestForm] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const genderParam = category === "M" ? "MALE" : category === "F" ? "FEMALE" : "";
+    fetch(`/api/users/search?q=${genderParam ? `&gender=${genderParam}` : ""}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setAllUsers)
+      .catch(() => {})
+      .finally(() => setLoadingUsers(false));
+  }, [open, category]);
+
+  const q = query.trim().toLowerCase();
+  const filteredUsers = allUsers.filter(
+    (u) => !existingPlayerIds.has(u.id) && (!q || u.name.toLowerCase().includes(q)),
+  );
+
+  async function handleAddUser(userId: string) {
+    const ok = await onAddPlayers([userId], []);
+    if (ok) setQuery("");
+  }
+
+  async function handleAddGuest() {
+    if (!guestName.trim()) return;
+    const ok = await onAddPlayers([], [{ name: guestName.trim() }]);
+    if (ok) {
+      setGuestName("");
+      setShowGuestForm(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="p-4">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full rounded-lg border-[1.5px] border-dashed border-lime-deep bg-lime-soft/30 p-3 text-sm font-bold text-lime-deep hover:bg-lime-soft/60"
+        >
+          + Añadir jugadores
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-widest2 text-muted">
+          Añadir jugadores
+        </span>
+        <button
+          type="button"
+          onClick={() => { setOpen(false); setQuery(""); setShowGuestForm(false); }}
+          className="text-xs text-muted underline hover:text-ink"
+        >
+          Cerrar
+        </button>
+      </div>
+
+      {/* Buscar usuarios registrados */}
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Buscar jugador..."
+        className="block w-full rounded-md border-[1.5px] border-ink bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-lime"
+      />
+
+      {loadingUsers ? (
+        <p className="text-xs text-muted">Cargando...</p>
+      ) : filteredUsers.length > 0 ? (
+        <div className="max-h-48 overflow-y-auto rounded-lg border-[1.5px] border-ink">
+          {filteredUsers.slice(0, 10).map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              disabled={actionLoading}
+              onClick={() => handleAddUser(u.id)}
+              className="flex w-full items-center gap-2 border-b border-muted/30 px-2 py-2 text-left hover:bg-lime-soft/40 last:border-b-0 disabled:opacity-50"
+            >
+              <Avatar label={u.name.charAt(0).toUpperCase()} size={24} />
+              <span className="flex-1 truncate text-xs font-bold text-ink">{u.name}</span>
+              <span className="text-xs font-semibold text-lime-deep">+</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted">
+          {allUsers.length === 0 ? "Sin jugadores disponibles." : "Todos ya estan en el torneo."}
+        </p>
+      )}
+
+      {/* Añadir externo */}
+      {showGuestForm ? (
+        <div className="rounded-lg border-[1.5px] border-lime-deep bg-lime-soft/30 p-2 space-y-2">
+          <input
+            type="text"
+            value={guestName}
+            onChange={(e) => setGuestName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleAddGuest(); }}
+            placeholder="Nombre del externo"
+            className="block w-full rounded-md border-[1.5px] border-ink bg-paper px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-lime"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={actionLoading || !guestName.trim()}
+              onClick={handleAddGuest}
+              className="flex-1 rounded-md border-[1.5px] border-ink bg-lime px-2 py-1 text-xs font-bold text-ink disabled:opacity-50"
+            >
+              Añadir
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowGuestForm(false); setGuestName(""); }}
+              className="rounded-md border-[1.5px] border-ink bg-fill px-2 py-1 text-xs font-bold text-ink"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowGuestForm(true)}
+          className="w-full rounded-md border-[1.5px] border-dashed border-muted bg-fill px-2 py-2 text-xs font-semibold text-ink-2 hover:border-ink"
+        >
+          + Añadir externo
+        </button>
+      )}
     </div>
   );
 }
