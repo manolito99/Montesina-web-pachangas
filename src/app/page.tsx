@@ -17,6 +17,7 @@ interface ApiPachanga {
   duration: number;
   court: { name: string; type: string };
   maxPlayers: number;
+  status: "OPEN" | "FULL" | "CANCELLED" | "FINISHED";
   price: string;
   organizer: { name: string };
   _count: { participations: number };
@@ -50,20 +51,24 @@ function formatPachanga(p: ApiPachanga) {
 }
 
 export default function Home() {
-  const [pachangas, setPachangas] = useState<ReturnType<typeof formatPachanga>[]>([]);
+  const [activas, setActivas] = useState<ReturnType<typeof formatPachanga>[]>([]);
+  const [hasUpcomingFull, setHasUpcomingFull] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/pachangas")
       .then((r) => r.json())
       .then((data: ApiPachanga[]) => {
         const now = new Date();
-        const upcoming = data
-          .filter((p) => new Date(p.date) >= now)
-          .slice(0, 3)
-          .map(formatPachanga);
-        setPachangas(upcoming);
+        const futuras = data.filter((p) => new Date(p.date) >= now);
+        const activasFuturas = futuras.filter(
+          (p) => p._count.participations < p.maxPlayers,
+        );
+        setActivas(activasFuturas.slice(0, 3).map(formatPachanga));
+        setHasUpcomingFull(futuras.length > 0 && activasFuturas.length === 0);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, []);
 
   return (
@@ -72,7 +77,7 @@ export default function Home() {
       <main className="pb-12">
         <MobileHero />
         <DesktopHero />
-        <FeaturedSection pachangas={pachangas} />
+        <FeaturedSection pachangas={activas} hasUpcomingFull={hasUpcomingFull} loaded={loaded} />
       </main>
       <SiteFooter />
       <div className="bg-paper-alt px-6 pb-6 text-center">
@@ -161,13 +166,22 @@ function DesktopHero() {
   );
 }
 
-function FeaturedSection({ pachangas }: { pachangas: ReturnType<typeof formatPachanga>[] }) {
+function FeaturedSection({
+  pachangas,
+  hasUpcomingFull,
+  loaded,
+}: {
+  pachangas: ReturnType<typeof formatPachanga>[];
+  hasUpcomingFull: boolean;
+  loaded: boolean;
+}) {
+  const showEmpty = loaded && pachangas.length === 0;
   return (
     <section className="border-t-[1.5px] border-ink bg-paper-alt px-6 py-16">
       <div className="container">
         <div className="flex items-baseline justify-between">
           <h2 className="text-xl font-bold text-ink md:text-2xl">
-            Próximas pachangas
+            Próximas pachangas activas
           </h2>
           <Link
             href="/pachangas"
@@ -177,12 +191,25 @@ function FeaturedSection({ pachangas }: { pachangas: ReturnType<typeof formatPac
           </Link>
         </div>
 
-        {pachangas.length === 0 ? (
+        {showEmpty ? (
           <div className="mt-8 text-center">
-            <p className="text-sm text-muted">No hay pachangas programadas.</p>
-            <Link href="/pachangas/nueva" className="mt-2 inline-block font-hand text-sm font-bold text-lime-deep">
-              Crea la primera →
-            </Link>
+            {hasUpcomingFull ? (
+              <>
+                <p className="text-sm text-muted">
+                  Todas las próximas pachangas están completas.
+                </p>
+                <Link href="/pachangas/nueva" className="mt-2 inline-block font-hand text-sm font-bold text-lime-deep">
+                  Crea una nueva →
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted">No hay pachangas programadas.</p>
+                <Link href="/pachangas/nueva" className="mt-2 inline-block font-hand text-sm font-bold text-lime-deep">
+                  Crea la primera →
+                </Link>
+              </>
+            )}
           </div>
         ) : (
           <ul className="mt-6 grid gap-4 md:grid-cols-3">
