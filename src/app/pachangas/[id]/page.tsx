@@ -373,6 +373,36 @@ export default function PachangaDetailPage() {
     }
   };
 
+  /* ── Organizer: convert M or F to mixed (X) ── */
+  const handleConvertToMixed = async () => {
+    if (!data) return;
+    const fromLabel = data.category === "M" ? "masculino" : "femenino";
+    const newGender = data.category === "M" ? "Las mujeres" : "Los hombres";
+    if (
+      !confirm(
+        `Esta pachanga ${fromLabel} pasará a mixta. ${newGender} del club también podrán apuntarse y se les avisará.\n\nNo se añaden plazas: los nuevos apuntados irán a lista de espera si está completa.\n\n¿Confirmas?`,
+      )
+    ) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/pachangas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: "X" }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "No se pudo convertir la pachanga");
+        return;
+      }
+      await fetchPachanga();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   /* ── Organizer: add guest player ── */
   const handleAddGuest = async (name: string): Promise<boolean> => {
     setActionLoading(true);
@@ -511,6 +541,7 @@ export default function PachangaDetailPage() {
               onLeave={handleLeave}
               isOrganizer={isOrganizer}
               onDelete={handleDelete}
+              onConvertToMixed={handleConvertToMixed}
               onAddGuest={handleAddGuest}
               onRemoveParticipation={handleRemoveParticipation}
             />
@@ -581,6 +612,7 @@ function MainContent({
   onLeave,
   isOrganizer,
   onDelete,
+  onConvertToMixed,
   onAddGuest,
   onRemoveParticipation,
 }: {
@@ -596,6 +628,7 @@ function MainContent({
   onLeave: () => void;
   isOrganizer: boolean;
   onDelete: () => void;
+  onConvertToMixed: () => void;
   onAddGuest: (name: string) => Promise<boolean>;
   onRemoveParticipation: (participationId: string, name: string) => Promise<void>;
 }) {
@@ -684,15 +717,28 @@ function MainContent({
       {/* Share bar */}
       <ShareBar data={data} plazasLibres={plazasLibres} />
 
-      {/* Delete button (organizer only) */}
+      {/* Organizer actions */}
       {isOrganizer && (
-        <button
-          onClick={onDelete}
-          disabled={actionLoading}
-          className="text-xs font-semibold text-rose-600 underline hover:text-rose-800"
-        >
-          Eliminar pachanga
-        </button>
+        <div className="flex flex-wrap items-center gap-4">
+          {(data.category === "M" || data.category === "F") &&
+            data.status !== "FINISHED" &&
+            data.status !== "CANCELLED" && (
+              <button
+                onClick={onConvertToMixed}
+                disabled={actionLoading}
+                className="text-xs font-semibold text-lime-deep underline hover:text-ink"
+              >
+                🔀 Abrir a mixto
+              </button>
+            )}
+          <button
+            onClick={onDelete}
+            disabled={actionLoading}
+            className="text-xs font-semibold text-rose-600 underline hover:text-rose-800"
+          >
+            Eliminar pachanga
+          </button>
+        </div>
       )}
 
       {/* Desktop CTA row */}
