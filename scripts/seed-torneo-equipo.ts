@@ -49,6 +49,15 @@ const CUADRANTE: [string, string[], [string, string][][]][] = [
   ]],
 ];
 
+/** Homonimos en el club: se fija la cuenta por email para no equivocarse */
+const CUENTAS: Record<string, string> = {
+  "Nolo": "nolomanolo990@gmail.com",
+  "Sousa": "daviddesousalorenzo@gmail.com",
+  "Barbosa": "barbosalorenzodavid@gmail.com",
+  "Juanjo": "xoanbgpn1983@gmail.com",
+  "David": "davidalvarezvidal9@gmail.com",
+};
+
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
@@ -60,17 +69,29 @@ async function main() {
   const organizer = await db.user.findUnique({ where: { email: ORGANIZER_EMAIL } });
   if (!organizer) throw new Error(`No existe el usuario ${ORGANIZER_EMAIL}`);
 
-  // Enlaza con cuentas reales cuando el nombre coincide; el resto van de invitados
-  const users = await db.user.findMany({ select: { id: true, name: true, gender: true } });
+  // Enlaza con cuentas reales. Los que tienen homonimos en el club se fijan por
+  // email; el resto por nombre, y si hay mas de un candidato se deja de invitado
+  // antes que arriesgarse a meter en el torneo a quien no es.
+  const users = await db.user.findMany({ select: { id: true, name: true, email: true } });
   const resolved = JUGADORES.map((nombre) => {
+    const email = CUENTAS[nombre];
+    if (email) {
+      const hit = users.find((u) => u.email === email);
+      if (!hit) throw new Error(`No existe la cuenta ${email} (para ${nombre})`);
+      return { nombre, userId: hit.id, cuenta: hit.name, nota: "por email" };
+    }
     const n = norm(nombre);
-    const hit = users.find((u) => u.name && (norm(u.name) === n || norm(u.name).startsWith(n + " ")));
-    return { nombre, userId: hit?.id ?? null, cuenta: hit?.name ?? null };
+    const cands = users.filter((u) => u.name && (norm(u.name) === n || norm(u.name).startsWith(n + " ")));
+    if (cands.length === 1) return { nombre, userId: cands[0].id, cuenta: cands[0].name, nota: "por nombre" };
+    if (cands.length > 1) {
+      return { nombre, userId: null, cuenta: null, nota: `AMBIGUO: ${cands.map((c) => c.name).join(" / ")} -> va de invitado` };
+    }
+    return { nombre, userId: null, cuenta: null, nota: "sin cuenta" };
   });
 
   console.log("\nJugadores:");
   for (const r of resolved) {
-    console.log(`  ${r.nombre.padEnd(16)} ${r.userId ? `-> cuenta "${r.cuenta}"` : "-> invitado (sin cuenta)"}`);
+    console.log(`  ${r.nombre.padEnd(16)} ${r.userId ? `-> "${r.cuenta}"` : "-> INVITADO"}   (${r.nota})`);
   }
 
   const at = (hhmm: string) => new Date(`${FECHA}T${hhmm}:00`);
