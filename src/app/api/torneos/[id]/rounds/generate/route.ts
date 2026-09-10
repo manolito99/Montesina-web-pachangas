@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { generateAmericanoRound, generateMexicanoRound } from "@/lib/tournament-logic";
+import { generateAmericanoRound, generateMexicanoRound, recordOpponents, type OpponentHistory } from "@/lib/tournament-logic";
 
 export async function POST(
   req: NextRequest,
@@ -66,6 +66,7 @@ export async function POST(
     const partnerHistory = new Map<string, Set<string>>();
     const matchesPlayed = new Map<string, number>();
     const lastPlayedRound = new Map<string, number>();
+    const opponentHistory: OpponentHistory = new Map();
     const bump = (id: string, roundNumber: number) => {
       matchesPlayed.set(id, (matchesPlayed.get(id) ?? 0) + 1);
       lastPlayedRound.set(id, Math.max(lastPlayedRound.get(id) ?? 0, roundNumber));
@@ -82,9 +83,10 @@ export async function POST(
         partnerHistory.get(m.player4Id)!.add(m.player3Id);
         bump(m.player1Id, r.roundNumber); bump(m.player2Id, r.roundNumber);
         bump(m.player3Id, r.roundNumber); bump(m.player4Id, r.roundNumber);
+        recordOpponents(opponentHistory, [m.player1Id, m.player2Id], [m.player3Id, m.player4Id]);
       }
     }
-    result = generateAmericanoRound(players, partnerHistory, numCourts, matchesPlayed, lastPlayedRound);
+    result = generateAmericanoRound(players, partnerHistory, numCourts, matchesPlayed, lastPlayedRound, opponentHistory);
   }
 
   if (result.matches.length === 0) {

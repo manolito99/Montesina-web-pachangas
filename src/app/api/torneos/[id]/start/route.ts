@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { generateAmericanoRound, generateMexicanoRound } from "@/lib/tournament-logic";
+import { generateAmericanoRound, generateMexicanoRound, recordOpponents, type OpponentHistory } from "@/lib/tournament-logic";
 
 interface ParsedBlock {
   startsAt: Date;
@@ -114,6 +114,7 @@ export async function POST(
     const partnerHistory = new Map<string, Set<string>>();
     const matchesPlayed = new Map<string, number>();
     const lastPlayedRound = new Map<string, number>();
+    const opponentHistory: OpponentHistory = new Map();
     const rounds: {
       roundNumber: number;
       startsAt: Date;
@@ -130,7 +131,7 @@ export async function POST(
         const startsAt = new Date(block.startsAt.getTime() + i * slotMin * 60_000);
         const endsAt = new Date(startsAt.getTime() + plan.matchDurationMin * 60_000);
         const result = generateAmericanoRound(
-          players, partnerHistory, block.courtNames.length, matchesPlayed, lastPlayedRound,
+          players, partnerHistory, block.courtNames.length, matchesPlayed, lastPlayedRound, opponentHistory,
         );
         if (result.matches.length === 0) {
           return NextResponse.json({
@@ -148,6 +149,7 @@ export async function POST(
             matchesPlayed.set(p, (matchesPlayed.get(p) ?? 0) + 1);
             lastPlayedRound.set(p, roundNumber);
           }
+          recordOpponents(opponentHistory, m.teamA, m.teamB);
         }
         rounds.push({
           roundNumber,

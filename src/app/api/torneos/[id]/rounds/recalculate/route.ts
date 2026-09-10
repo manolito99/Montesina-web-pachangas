@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/admin";
-import { generateAmericanoRound } from "@/lib/tournament-logic";
+import { generateAmericanoRound, recordOpponents, type OpponentHistory } from "@/lib/tournament-logic";
 
 /**
  * Rehace las rondas que todavia no tienen ningun resultado, respetando su hora
@@ -61,6 +61,7 @@ export async function POST(
   const partnerHistory = new Map<string, Set<string>>();
   const matchesPlayed = new Map<string, number>();
   const lastPlayedRound = new Map<string, number>();
+  const opponentHistory: OpponentHistory = new Map();
   for (const r of jugadas) {
     for (const m of r.matches) {
       for (const [x, y] of [[m.player1Id, m.player2Id], [m.player3Id, m.player4Id]]) {
@@ -73,6 +74,7 @@ export async function POST(
         matchesPlayed.set(id, (matchesPlayed.get(id) ?? 0) + 1);
         lastPlayedRound.set(id, Math.max(lastPlayedRound.get(id) ?? 0, r.roundNumber));
       }
+      recordOpponents(opponentHistory, [m.player1Id, m.player2Id], [m.player3Id, m.player4Id]);
     }
   }
 
@@ -81,7 +83,7 @@ export async function POST(
 
   for (const round of pendientes) {
     const numCourts = round.courtNames.length || round.matches.length || 1;
-    const result = generateAmericanoRound(players, partnerHistory, numCourts, matchesPlayed, lastPlayedRound);
+    const result = generateAmericanoRound(players, partnerHistory, numCourts, matchesPlayed, lastPlayedRound, opponentHistory);
     if (result.matches.length === 0) {
       return NextResponse.json({
         error: `No se pueden formar partidos en la ronda ${round.roundNumber} con ${players.length} jugadores`,
@@ -98,6 +100,7 @@ export async function POST(
         matchesPlayed.set(id, (matchesPlayed.get(id) ?? 0) + 1);
         lastPlayedRound.set(id, round.roundNumber);
       }
+      recordOpponents(opponentHistory, m.teamA, m.teamB);
     }
     nuevas.push({
       roundId: round.id,
