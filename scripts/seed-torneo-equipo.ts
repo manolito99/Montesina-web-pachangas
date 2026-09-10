@@ -132,9 +132,13 @@ async function main() {
     include: { players: { include: { user: true } } },
   });
 
+  // Indexado por el nombre corto del cuadrante, no por el de la cuenta:
+  // "Barbosa" en el cuadrante es la cuenta "David Barbosa".
   const idDe = new Map<string, string>();
-  for (const p of t.players) {
-    idDe.set(norm(p.guestName ?? p.user?.name ?? ""), p.id);
+  for (const r of resolved) {
+    const fila = t.players.find((x) => (r.userId ? x.userId === r.userId : x.guestName === r.nombre));
+    if (!fila) throw new Error(`No se creo el jugador ${r.nombre}`);
+    idDe.set(norm(r.nombre), fila.id);
   }
   const pid = (nombre: string) => {
     const id = idDe.get(norm(nombre));
