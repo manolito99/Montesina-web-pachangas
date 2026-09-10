@@ -284,12 +284,39 @@ https://pachangasmontesina.cc/api/auth/callback/google
 - Cuando llega a 0: badge rojo parpadeante + cuenta tiempo extra (+1:34)
 - No para el partido automáticamente, solo avisa
 
-### Pistas variables por ronda
+### Cuadrante horario (torneos planificados)
 
-- Al pulsar "Iniciar torneo" o "Generar siguiente ronda" en un torneo **Personalizado**:
-  - Aparece prompt: *"¿Cuántas pistas para esta ronda? (1-20)"*
-  - Default = pistas del torneo
-- Permite escenarios reales: bloque 1 con 2 pistas, bloque 2 con 3 pistas, etc.
+Al pulsar "Iniciar torneo" en un torneo **Americano** o **Personalizado** se abre el
+**planificador** (`src/components/features/tournament-planner.tsx`):
+
+- El organizador define **bloques horarios**: hora de inicio, nº de rondas y nombres de pista
+  (ej. bloque 1 a las 18:30 con "Pabellón, Lebrón"; bloque 2 a las 20:00 con "Pabellón, Montesiña")
+- Duración de partido + minutos entre rondas, globales
+- Vista previa en vivo: rondas, partidos, hora de fin y **si el reparto de partidos es exacto**
+- Al aceptar se generan **TODAS las rondas de golpe** con su `startsAt`, `endsAt` y `courtNames`
+  → `Tournament.scheduled = true`, `currentRound = total`, y desaparece "Generar siguiente ronda"
+
+Esto es posible porque en Americano/Personalizado el emparejamiento **no depende de los
+resultados**. En **Mexicano** sí (empareja por clasificación), así que sigue yendo ronda a
+ronda con el prompt de pistas y el endpoint rechaza un `schedule`.
+
+En la pestaña Rondas, un torneo planificado se lee en **orden cronológico** (el resto, la
+última ronda primero), cada ronda muestra su hora y sus pistas, cada partido el nombre real
+de su pista, y la ronda en curso lleva badge **AHORA**.
+
+### Reparto de partidos (`generateAmericanoRound`)
+
+Con N jugadores y C pistas, cada ronda llena `min(floor(N/4), C) * 4` huecos. El generador:
+
+1. Ordena por **partidos jugados asc**, luego por **quién lleva más tiempo sin jugar**, luego aleatorio
+2. Coge **exactamente** a los que van en cabeza de esa cola y busca el emparejamiento por
+   **backtracking** (`findPairing`), sin repetir compañeros
+3. Solo si esos no se pueden emparejar sin repetir, ensancha el pool de uno en uno —
+   el equilibrio manda sobre la variedad de compañeros
+4. Último recurso (todos han jugado con todos): permite repetir compañero
+
+**Garantía**: diferencia max-min = 0 si `huecos_totales % N == 0`, y 1 en caso contrario.
+Nadie descansa dos rondas seguidas. Verificado con 12/2/6, 21/3/8 y 80/20/40.
 
 ### Permisos
 

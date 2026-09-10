@@ -10,7 +10,7 @@ interface MatchPairing {
 
 interface RoundResult {
   matches: MatchPairing[];
-  sitsOut: string | null;
+  sitsOut: string[];
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -22,52 +22,79 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/**
+ * Picks `numPairs` pairs out of `pool`, never repeating a past partner.
+ * The pool is already ordered by priority, and the earliest player still free is
+ * always forced into a pair, so the players who most need to play never get
+ * skipped in favour of someone further down the queue. Exhaustive backtracking:
+ * the pool is a dozen players at most. Returns null if no valid pairing exists.
+ */
+function findPairing(
+  pool: string[],
+  numPairs: number,
+  partnerHistory: Map<string, Set<string>>,
+): [string, string][] | null {
+  const pairs: [string, string][] = [];
+  const used = new Set<string>();
+  // Safety valve for big pools with a saturated history: give up rather than
+  // hang, and let the caller fall back to a wider pool / a repeated partner.
+  let budget = 50_000;
+
+  const backtrack = (): boolean => {
+    if (pairs.length === numPairs) return true;
+    if (budget-- <= 0) return false;
+    const i = pool.findIndex((p) => !used.has(p));
+    if (i === -1) return false;
+    const a = pool[i];
+    used.add(a);
+    for (let j = i + 1; j < pool.length; j++) {
+      const b = pool[j];
+      if (used.has(b)) continue;
+      if (partnerHistory.get(a)?.has(b)) continue;
+      used.add(b);
+      pairs.push([a, b]);
+      if (backtrack()) return true;
+      pairs.pop();
+      used.delete(b);
+    }
+    used.delete(a);
+    return false;
+  };
+
+  return backtrack() ? pairs : null;
+}
+
 export function generateAmericanoRound(
   players: PlayerSlot[],
   partnerHistory: Map<string, Set<string>>,
   numCourts: number,
   matchesPlayed: Map<string, number> = new Map(),
+  lastPlayedRound: Map<string, number> = new Map(),
 ): RoundResult {
-  // Order: fewest matches first, then random within same count
+  // Priority: fewest matches first, then whoever has been sitting out longest,
+  // then random. Sorting is stable, so the shuffle breaks the remaining ties.
   const shuffled = shuffle(players.map((p) => p.id));
   const ids = shuffled.sort((a, b) => {
-    const ma = matchesPlayed.get(a) ?? 0;
-    const mb = matchesPlayed.get(b) ?? 0;
-    return ma - mb;
+    const byMatches = (matchesPlayed.get(a) ?? 0) - (matchesPlayed.get(b) ?? 0);
+    if (byMatches !== 0) return byMatches;
+    return (lastPlayedRound.get(a) ?? 0) - (lastPlayedRound.get(b) ?? 0);
   });
 
   const maxMatchesPerRound = Math.min(Math.floor(ids.length / 4), numCourts);
-  const used = new Set<string>();
-  const pairs: [string, string][] = [];
+  const needed = maxMatchesPerRound * 4;
 
-  for (let i = 0; i < ids.length && pairs.length < maxMatchesPerRound * 2; i++) {
-    if (used.has(ids[i])) continue;
-    for (let j = i + 1; j < ids.length; j++) {
-      if (used.has(ids[j])) continue;
-      const history = partnerHistory.get(ids[i]);
-      if (!history || !history.has(ids[j])) {
-        pairs.push([ids[i], ids[j]]);
-        used.add(ids[i]);
-        used.add(ids[j]);
-        break;
-      }
-    }
+  // Try to fill the round with exactly the `needed` players at the front of the
+  // queue. Only if they cannot be paired without repeating a partner do we widen
+  // the pool one player at a time — balance matters more than partner variety.
+  let pairs: [string, string][] | null = null;
+  for (let extra = 0; extra <= ids.length - needed && !pairs; extra++) {
+    pairs = findPairing(ids.slice(0, needed + extra), needed / 2, partnerHistory);
   }
+  // Last resort: everyone has already played with everyone, so allow a repeat.
+  if (!pairs) pairs = findPairing(ids.slice(0, needed), needed / 2, new Map());
+  if (!pairs) return { matches: [], sitsOut: ids };
 
-  // If greedy couldn't fill enough pairs, fill with any remaining
-  if (pairs.length < maxMatchesPerRound * 2) {
-    for (let i = 0; i < ids.length && pairs.length < maxMatchesPerRound * 2; i++) {
-      if (used.has(ids[i])) continue;
-      for (let j = i + 1; j < ids.length; j++) {
-        if (used.has(ids[j])) continue;
-        pairs.push([ids[i], ids[j]]);
-        used.add(ids[i]);
-        used.add(ids[j]);
-        break;
-      }
-    }
-  }
-
+  const used = new Set(pairs.flat());
   const matches: MatchPairing[] = [];
   for (let k = 0; k + 1 < pairs.length; k += 2) {
     matches.push({
@@ -77,9 +104,7 @@ export function generateAmericanoRound(
     });
   }
 
-  const sitsOut = ids.find((id) => !used.has(id)) ?? null;
-
-  return { matches, sitsOut };
+  return { matches, sitsOut: ids.filter((id) => !used.has(id)) };
 }
 
 export function generateMexicanoRound(
@@ -109,9 +134,8 @@ export function generateMexicanoRound(
   }
 
   const usedCount = maxMatches * 4;
-  const sitsOut = ordered.length > usedCount ? ordered[usedCount] : null;
 
-  return { matches, sitsOut };
+  return { matches, sitsOut: ordered.slice(usedCount) };
 }
 
 export function calculateTotalRounds(playerCount: number): number {
