@@ -29,28 +29,39 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   }
 
-  // En IN_PROGRESS no se borra: se marca como inactivo (retirado)
-  // Pero solo si no tiene partidos pendientes en la ronda actual
+  // En IN_PROGRESS no se borra: se marca como inactivo (retirado).
+  // Solo se bloquea si tiene un partido pendiente en una ronda que YA se esta
+  // jugando. En un torneo planificado todas las rondas existen desde el principio,
+  // asi que mirar solo `currentRound` (la ultima) bloqueaba siempre; las rondas
+  // futuras se arreglan luego con "recalcular rondas pendientes".
   if (tournament.status === "IN_PROGRESS") {
-    const currentRound = await db.tournamentRound.findFirst({
-      where: { tournamentId: params.id, roundNumber: tournament.currentRound },
+    const rounds = await db.tournamentRound.findMany({
+      where: { tournamentId: params.id },
       include: { matches: true },
     });
+    const now = Date.now();
+    const enJuego = (r: (typeof rounds)[number]) =>
+      r.matches.some((m) => m.completed) ||
+      (tournament.scheduled
+        ? r.startsAt !== null && r.startsAt.getTime() <= now
+        : r.roundNumber === tournament.currentRound);
 
-    if (currentRound) {
-      const hasPending = currentRound.matches.some(
-        (m) =>
-          !m.completed &&
-          (m.player1Id === params.playerId ||
-            m.player2Id === params.playerId ||
-            m.player3Id === params.playerId ||
-            m.player4Id === params.playerId),
-      );
-      if (hasPending) {
-        return NextResponse.json({
-          error: "Este jugador tiene un partido pendiente. Completa primero el resultado de ese partido.",
-        }, { status: 400 });
-      }
+    const bloquea = rounds.some(
+      (r) =>
+        enJuego(r) &&
+        r.matches.some(
+          (m) =>
+            !m.completed &&
+            (m.player1Id === params.playerId ||
+              m.player2Id === params.playerId ||
+              m.player3Id === params.playerId ||
+              m.player4Id === params.playerId),
+        ),
+    );
+    if (bloquea) {
+      return NextResponse.json({
+        error: "Este jugador tiene un partido pendiente en la ronda que se esta jugando. Mete primero ese resultado.",
+      }, { status: 400 });
     }
 
     await db.tournamentPlayer.update({

@@ -199,6 +199,23 @@ export default function TournamentDetailPage() {
     }
   };
 
+  const handleRecalculate = async () => {
+    if (!confirm("Rehacer las rondas que aun no tienen resultado con los jugadores activos? Se mantienen las horas y las pistas.")) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/torneos/${id}/rounds/recalculate`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || "No se pudieron recalcular las rondas");
+        return;
+      }
+      alert(`Rondas ${json.rondasRehechas.join(", ")} rehechas con ${json.jugadoresActivos} jugadores.`);
+      await fetchTournament();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleFinish = async () => {
     if (!confirm("Finalizar el torneo? No se podran generar mas rondas.")) return;
     setActionLoading(true);
@@ -388,6 +405,7 @@ export default function TournamentDetailPage() {
               onStart={handleStart}
               onGenerateRound={handleGenerateRound}
               onFinish={handleFinish}
+              onRecalculate={handleRecalculate}
               onDelete={handleDelete}
               onTogglePlayerActive={handleTogglePlayerActive}
               onAddPlayers={handleAddPlayers}
@@ -405,6 +423,7 @@ export default function TournamentDetailPage() {
             onStart={handleStart}
             onGenerateRound={handleGenerateRound}
             onFinish={handleFinish}
+            onRecalculate={handleRecalculate}
           />
           {canManage && (data.status === "OPEN" || data.status === "IN_PROGRESS") && (
             <div className="mt-4">
@@ -974,6 +993,7 @@ function TournamentSidebar({
   onStart,
   onGenerateRound,
   onFinish,
+  onRecalculate,
   onDelete,
   onTogglePlayerActive,
   onAddPlayers,
@@ -986,6 +1006,7 @@ function TournamentSidebar({
   onStart: () => void;
   onGenerateRound: () => void;
   onFinish: () => void;
+  onRecalculate: () => void;
   onDelete: () => void;
   onTogglePlayerActive: (playerId: string, active: boolean, name: string) => void;
   onAddPlayers: (userIds: string[], guests: { name: string }[]) => Promise<boolean | undefined>;
@@ -1000,6 +1021,7 @@ function TournamentSidebar({
         onStart={onStart}
         onGenerateRound={onGenerateRound}
         onFinish={onFinish}
+        onRecalculate={onRecalculate}
       />
       {canManage && (data.status === "OPEN" || data.status === "IN_PROGRESS") && (
         <AddPlayersSection
@@ -1043,6 +1065,7 @@ function OrganizerActions({
   onStart,
   onGenerateRound,
   onFinish,
+  onRecalculate,
 }: {
   data: TournamentData;
   isOrganizer: boolean;
@@ -1051,6 +1074,7 @@ function OrganizerActions({
   onStart: () => void;
   onGenerateRound: () => void;
   onFinish: () => void;
+  onRecalculate: () => void;
 }) {
   if (!isOrganizer) return null;
 
@@ -1081,6 +1105,18 @@ function OrganizerActions({
             onClick={onGenerateRound}
           >
             {actionLoading ? "Generando..." : "Generar siguiente ronda"}
+          </NeoButton>
+        )}
+
+        {/* Alguien falla o llega tarde: rehace lo que aun no se ha jugado */}
+        {data.status === "IN_PROGRESS" && data.scheduled && (
+          <NeoButton
+            variant="secondary"
+            full
+            disabled={actionLoading}
+            onClick={onRecalculate}
+          >
+            {actionLoading ? "Recalculando..." : "Recalcular rondas pendientes"}
           </NeoButton>
         )}
 
