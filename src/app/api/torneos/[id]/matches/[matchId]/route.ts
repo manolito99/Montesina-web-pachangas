@@ -39,33 +39,35 @@ export async function PUT(
   if (!match) {
     return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
   }
-  if (match.completed) {
-    return NextResponse.json({ error: "El resultado ya fue registrado" }, { status: 400 });
-  }
 
-  // Update match score
-  await db.tournamentMatch.update({
-    where: { id: params.matchId },
-    data: { scoreTeamA, scoreTeamB, completed: true },
-  });
+  // A match already scored can be corrected: revert the old points and apply the new ones
+  const prevA = match.completed ? match.scoreTeamA ?? 0 : 0;
+  const prevB = match.completed ? match.scoreTeamB ?? 0 : 0;
+  const deltaA = scoreTeamA - prevA;
+  const deltaB = scoreTeamB - prevB;
 
-  // Update player points
-  await db.tournamentPlayer.update({
-    where: { id: match.player1Id },
-    data: { totalPoints: { increment: scoreTeamA } },
-  });
-  await db.tournamentPlayer.update({
-    where: { id: match.player2Id },
-    data: { totalPoints: { increment: scoreTeamA } },
-  });
-  await db.tournamentPlayer.update({
-    where: { id: match.player3Id },
-    data: { totalPoints: { increment: scoreTeamB } },
-  });
-  await db.tournamentPlayer.update({
-    where: { id: match.player4Id },
-    data: { totalPoints: { increment: scoreTeamB } },
-  });
+  await db.$transaction([
+    db.tournamentMatch.update({
+      where: { id: params.matchId },
+      data: { scoreTeamA, scoreTeamB, completed: true },
+    }),
+    db.tournamentPlayer.update({
+      where: { id: match.player1Id },
+      data: { totalPoints: { increment: deltaA } },
+    }),
+    db.tournamentPlayer.update({
+      where: { id: match.player2Id },
+      data: { totalPoints: { increment: deltaA } },
+    }),
+    db.tournamentPlayer.update({
+      where: { id: match.player3Id },
+      data: { totalPoints: { increment: deltaB } },
+    }),
+    db.tournamentPlayer.update({
+      where: { id: match.player4Id },
+      data: { totalPoints: { increment: deltaB } },
+    }),
+  ]);
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, corrected: match.completed });
 }

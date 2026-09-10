@@ -15,6 +15,7 @@ import { NeoCard } from "@/components/ui/neo-card";
 import { StatBox } from "@/components/ui/stat-box";
 import { cn } from "@/lib/utils";
 import { isAdmin } from "@/lib/admin";
+import { TournamentPlanner, type SchedulePayload } from "@/components/features/tournament-planner";
 
 /* ──────────────────────────────────────────────
    Types (match API response shape)
@@ -30,6 +31,9 @@ interface TournamentData {
   freeScoring: boolean;
   matchDurationMin: number | null;
   courtIds: string[];
+  notes: string | null;
+  scheduled: boolean;
+  startsAt: string | null;
   currentRound: number;
   organizerId: string;
   organizer: { id: string; name: string };
@@ -42,16 +46,19 @@ interface TournamentData {
   rounds: {
     id: string;
     roundNumber: number;
+    startsAt: string | null;
+    endsAt: string | null;
+    courtNames: string[];
     matches: {
       id: string;
       courtIndex: number;
       scoreTeamA: number | null;
       scoreTeamB: number | null;
       completed: boolean;
-      player1: { user: { name: string } };
-      player2: { user: { name: string } };
-      player3: { user: { name: string } };
-      player4: { user: { name: string } };
+      player1: { id: string; user: { name: string } };
+      player2: { id: string; user: { name: string } };
+      player3: { id: string; user: { name: string } };
+      player4: { id: string; user: { name: string } };
     }[];
   }[];
 }
@@ -96,6 +103,7 @@ export default function TournamentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showPlanner, setShowPlanner] = useState(false);
 
   const fetchTournament = useCallback(async () => {
     try {
@@ -130,28 +138,41 @@ export default function TournamentDetailPage() {
     return n;
   };
 
-  const handleStart = async () => {
-    if (!data) return;
-    const isCustom = data.format === "PERSONALIZADO";
-    const defaultCourts = data.courtIds.length || 1;
-    const numCourts = isCustom ? promptNumCourts(defaultCourts) : defaultCourts;
-    if (numCourts === null) return;
+  const startTournament = async (body: Record<string, unknown>) => {
     setActionLoading(true);
     try {
       const res = await fetch(`/api/torneos/${id}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numCourts }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const err = await res.json();
         alert(err.error || "No se pudo iniciar el torneo");
-        return;
+        return false;
       }
       await fetchTournament();
+      return true;
     } finally {
       setActionLoading(false);
     }
+  };
+
+  // Mexicano empareja por clasificacion, asi que no se puede planificar por
+  // adelantado: sigue yendo ronda a ronda. El resto abre el planificador.
+  const handleStart = () => {
+    if (!data) return;
+    if (data.format === "MEXICANO") {
+      const numCourts = data.courtIds.length || 1;
+      startTournament({ numCourts });
+      return;
+    }
+    setShowPlanner(true);
+  };
+
+  const handleConfirmPlan = async (schedule: SchedulePayload) => {
+    const ok = await startTournament({ schedule });
+    if (ok) setShowPlanner(false);
   };
 
   const handleGenerateRound = async () => {
@@ -416,6 +437,17 @@ export default function TournamentDetailPage() {
         </div>
       </main>
 
+      {showPlanner && (
+        <TournamentPlanner
+          playerCount={data.players.filter((p) => p.active).length}
+          defaultDurationMin={data.matchDurationMin}
+          defaultCourts={[]}
+          saving={actionLoading}
+          onCancel={() => setShowPlanner(false)}
+          onConfirm={handleConfirmPlan}
+        />
+      )}
+
       <SiteFooter />
       <MobileTabs active="Pachangas" />
     </>
@@ -435,7 +467,9 @@ function TournamentMainContent({
   isOrganizer: boolean;
   onSaveScore: (matchId: string, scoreA: number, scoreB: number) => Promise<void>;
 }) {
-  const [activeTab, setActiveTab] = useState<"clasificacion" | "rondas">("clasificacion");
+  const [activeTab, setActiveTab] = useState<"clasificacion" | "rondas">(
+    data.scheduled && data.status === "IN_PROGRESS" ? "rondas" : "clasificacion",
+  );
 
   return (
     <div className="space-y-5">
@@ -464,6 +498,16 @@ function TournamentMainContent({
           {data.name}
         </h1>
       </div>
+
+      {/* Notes (horarios, pistas, avisos del organizador) */}
+      {data.notes?.trim() && (
+        <div className="rounded-lg border-[1.5px] border-ink bg-lime-soft/30 p-4">
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest2 text-muted">
+            Notas del organizador
+          </p>
+          <p className="whitespace-pre-wrap text-sm text-ink">{data.notes.trim()}</p>
+        </div>
+      )}
 
       {/* Stat grid */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -513,6 +557,8 @@ function TournamentMainContent({
       ) : (
         <RoundsTab
           rounds={data.rounds}
+          players={data.players}
+          scheduled={data.scheduled}
           pointsPerMatch={data.pointsPerMatch}
           freeScoring={data.freeScoring}
           matchDurationMin={data.matchDurationMin}
@@ -522,6 +568,11 @@ function TournamentMainContent({
       )}
     </div>
   );
+}
+
+function fmtHour(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 }
 
 /* ──────────────────────────────────────────────
@@ -618,6 +669,8 @@ function LeaderboardTab({
 
 function RoundsTab({
   rounds,
+  players,
+  scheduled,
   pointsPerMatch,
   freeScoring,
   matchDurationMin,
@@ -625,13 +678,21 @@ function RoundsTab({
   onSaveScore,
 }: {
   rounds: TournamentData["rounds"];
+  players: TournamentData["players"];
+  scheduled: boolean;
   pointsPerMatch: number;
   freeScoring: boolean;
   matchDurationMin: number | null;
   isOrganizer: boolean;
   onSaveScore: (matchId: string, scoreA: number, scoreB: number) => Promise<void>;
 }) {
-  const sortedRounds = [...rounds].sort((a, b) => b.roundNumber - a.roundNumber);
+  // Con cuadrante planificado las rondas se leen en orden cronologico;
+  // sin el, la ultima generada va primero.
+  const sortedRounds = [...rounds].sort((a, b) =>
+    scheduled ? a.roundNumber - b.roundNumber : b.roundNumber - a.roundNumber,
+  );
+  const activePlayers = players.filter((p) => p.active);
+  const now = Date.now();
 
   if (sortedRounds.length === 0) {
     return (
@@ -647,27 +708,55 @@ function RoundsTab({
     <div className="space-y-4">
       {sortedRounds.map((round) => {
         const allCompleted = round.matches.every((m) => m.completed);
+        const playingIds = new Set(
+          round.matches.flatMap((m) => [m.player1.id, m.player2.id, m.player3.id, m.player4.id]),
+        );
+        const resting = activePlayers.filter((p) => !playingIds.has(p.id));
+        const startMs = round.startsAt ? new Date(round.startsAt).getTime() : null;
+        const endMs = round.endsAt ? new Date(round.endsAt).getTime() : null;
+        const live = !allCompleted && startMs !== null && endMs !== null && now >= startMs && now <= endMs;
 
         return (
           <div
             key={round.id}
-            className="rounded-lg border-[1.5px] border-ink bg-fill"
+            className={cn(
+              "rounded-lg border-[1.5px] bg-fill",
+              live ? "border-[2.5px] border-lime-deep" : "border-ink",
+            )}
           >
             {/* Round header */}
-            <div className="flex items-center justify-between border-b-[1.5px] border-ink px-4 py-3">
-              <span className="text-sm font-extrabold text-ink">
-                Ronda {round.roundNumber}
-              </span>
-              <span
-                className={cn(
-                  "rounded px-2 py-px text-[10px] font-bold uppercase tracking-widest2",
-                  allCompleted
-                    ? "bg-lime text-ink"
-                    : "bg-fill border-[1.2px] border-ink text-muted",
+            <div className="flex items-center justify-between gap-2 border-b-[1.5px] border-ink px-4 py-3">
+              <div className="min-w-0">
+                <span className="text-sm font-extrabold text-ink">
+                  Ronda {round.roundNumber}
+                </span>
+                {round.startsAt && (
+                  <span className="ml-2 text-sm font-bold text-ink">
+                    {fmtHour(round.startsAt)}
+                    {round.endsAt && `–${fmtHour(round.endsAt)}`}
+                  </span>
                 )}
-              >
-                {allCompleted ? "Completada" : "Pendiente"}
-              </span>
+                {round.courtNames.length > 0 && (
+                  <p className="font-hand text-xs text-muted">{round.courtNames.join(" + ")}</p>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 flex-wrap justify-end gap-1">
+                {live && (
+                  <span className="rounded bg-cat-masc px-2 py-px text-[10px] font-bold uppercase tracking-widest2 text-ink">
+                    Ahora
+                  </span>
+                )}
+                <span
+                  className={cn(
+                    "rounded px-2 py-px text-[10px] font-bold uppercase tracking-widest2",
+                    allCompleted
+                      ? "bg-lime text-ink"
+                      : "bg-fill border-[1.2px] border-ink text-muted",
+                  )}
+                >
+                  {allCompleted ? "Completada" : "Pendiente"}
+                </span>
+              </div>
             </div>
 
             {/* Matches */}
@@ -676,6 +765,7 @@ function RoundsTab({
                 <MatchRow
                   key={match.id}
                   match={match}
+                  courtName={round.courtNames[match.courtIndex] ?? null}
                   pointsPerMatch={pointsPerMatch}
                   freeScoring={freeScoring}
                   matchDurationMin={matchDurationMin}
@@ -684,6 +774,18 @@ function RoundsTab({
                 />
               ))}
             </div>
+
+            {/* Who sits out this round */}
+            {resting.length > 0 && (
+              <div className="border-t-[1.5px] border-ink/20 px-4 py-2.5 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest2 text-muted">
+                  Descansan ({resting.length})
+                </span>
+                <p className="mt-0.5 font-hand text-sm text-ink">
+                  {resting.map((p) => p.user.name).join(" · ")}
+                </p>
+              </div>
+            )}
           </div>
         );
       })}
@@ -697,6 +799,7 @@ function RoundsTab({
 
 function MatchRow({
   match,
+  courtName,
   pointsPerMatch,
   freeScoring,
   matchDurationMin,
@@ -704,6 +807,7 @@ function MatchRow({
   onSaveScore,
 }: {
   match: TournamentData["rounds"][number]["matches"][number];
+  courtName: string | null;
   pointsPerMatch: number;
   freeScoring: boolean;
   matchDurationMin: number | null;
@@ -721,6 +825,13 @@ function MatchRow({
     ? String(pointsPerMatch - numA)
     : "";
   const scoreB = freeScoring ? scoreBFree : scoreBAuto;
+
+  const openEditor = () => {
+    // Correcting an existing result: start from what is already recorded
+    setScoreA(match.scoreTeamA !== null ? String(match.scoreTeamA) : "");
+    setScoreBFree(match.scoreTeamB !== null ? String(match.scoreTeamB) : "");
+    setEditing(true);
+  };
 
   const handleSave = async () => {
     const a = parseInt(scoreA, 10);
@@ -772,12 +883,12 @@ function MatchRow({
       {/* Court label */}
       <div className="mt-1 text-center">
         <span className="text-[10px] font-hand text-muted">
-          Pista {match.courtIndex + 1}
+          {courtName ?? `Pista ${match.courtIndex + 1}`}
         </span>
       </div>
 
       {/* Organizer score entry */}
-      {isOrganizer && !match.completed && (
+      {isOrganizer && (
         <div className="mt-3">
           {editing ? (
             <div className="rounded-lg border-[1.5px] border-lime-deep bg-lime-soft/30 p-3">
@@ -820,12 +931,21 @@ function MatchRow({
               </div>
               <div className="mt-3 flex justify-center gap-2">
                 <NeoButton size="sm" variant="primary" disabled={saving || !scoreA || !scoreB} onClick={handleSave}>
-                  {saving ? "Guardando..." : "Guardar resultado"}
+                  {saving ? "Guardando..." : match.completed ? "Guardar correccion" : "Guardar resultado"}
                 </NeoButton>
                 <NeoButton size="sm" variant="ghost" disabled={saving} onClick={() => { setEditing(false); setScoreA(""); setScoreBFree(""); }}>
                   Cancelar
                 </NeoButton>
               </div>
+            </div>
+          ) : match.completed ? (
+            <div className="flex justify-center">
+              <button
+                onClick={openEditor}
+                className="text-[11px] font-semibold text-muted underline hover:text-ink"
+              >
+                Corregir resultado
+              </button>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
@@ -952,7 +1072,8 @@ function OrganizerActions({
           </NeoButton>
         )}
 
-        {data.status === "IN_PROGRESS" && allCurrentMatchesCompleted && (
+        {/* Con cuadrante planificado ya estan todas las rondas creadas */}
+        {data.status === "IN_PROGRESS" && !data.scheduled && allCurrentMatchesCompleted && (
           <NeoButton
             variant="primary"
             full

@@ -250,6 +250,10 @@ model Tournament {
   courtIds       String[]         @map("court_ids")
   notes          String?
 
+  // Cuadrante horario: se rellena si el organizador planifica el torneo al iniciarlo
+  startsAt       DateTime?        @map("starts_at")
+  scheduled      Boolean          @default(false)
+
   organizerId    String           @map("organizer_id")
   organizer      User             @relation("tournamentOrganizer", fields: [organizerId], references: [id])
 
@@ -290,6 +294,11 @@ model TournamentRound {
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   roundNumber  Int        @map("round_number")
   createdAt    DateTime   @default(now()) @map("created_at")
+
+  // Horario y pistas de esta ronda (null en torneos sin planificar)
+  startsAt     DateTime?  @map("starts_at")
+  endsAt       DateTime?  @map("ends_at")
+  courtNames   String[]   @map("court_names")
 
   matches      TournamentMatch[]
 
